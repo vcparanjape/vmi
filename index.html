@@ -12,6 +12,7 @@
 <link rel="apple-touch-icon" href="icon-180.png">
 <title>VM Inspection</title>
 <style>
+html{color-scheme:light}button{color:var(--ink);font-family:inherit}
 :root{--navy:#0b2545;--blue:#13315c;--acc:#1d70b8;--bg:#f3f5f8;--card:#fff;--ink:#1b2430;--mut:#6b7686;--line:#dde3ea;
 --ok:#1e8e3e;--bad:#c62828;--warn:#e8a200;--na:#7a8594;--guid:#fff7d6;--guidb:#f0d77a}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -55,6 +56,7 @@ textarea{min-height:64px;resize:vertical}
 .seg button.on[data-v="Yes"],.seg button.on[data-v="Good"],.seg button.on[data-v="Like New"]{background:var(--ok);border-color:var(--ok);color:#fff}
 .seg button.on[data-v="No"],.seg button.on[data-v="Poor"],.seg button.on[data-v="Unsatisfactory"]{background:var(--bad);border-color:var(--bad);color:#fff}
 .seg button.on[data-v="Satisfactory"]{background:var(--warn);border-color:var(--warn);color:#fff}
+.seg button.on[data-v="Closed"]{background:var(--ok);border-color:var(--ok);color:#fff}.seg button.on[data-v="Open"],.seg button.on[data-v="Repeat"]{background:var(--bad);border-color:var(--bad);color:#fff}
 .seg button.on[data-v="NA"],.seg button.on[data-v="NS"]{background:var(--na);border-color:var(--na);color:#fff}
 .seg.ca button{font-size:11.5px;padding:8px 2px}
 details.guid{margin:8px 0;background:var(--guid);border:1px solid var(--guidb);border-radius:9px;padding:6px 9px}
@@ -96,7 +98,7 @@ pre.out{white-space:pre-wrap;background:#fff;border:1px solid var(--line);border
 <script>
 'use strict';
 /* ================= constants ================= */
-const APPV='1.0.0';
+const APPV='1.1.0';
 const VESSELS=[['SUTTON','Federal Sutton'],['SWIFT','Federal Swift'],['SPEY','Federal Spey'],['TYNE','Federal Tyne'],['TWEED','Federal Tweed']];
 const CL_ANS=['Yes','No','NA','NS'];
 const CA_ANS=['Poor','Unsatisfactory','Satisfactory','Good','Like New'];
@@ -118,14 +120,13 @@ const PREAMBLE=[
 const PRE_LIST=[];PREAMBLE.forEach(([c,n,s])=>s.forEach((x,i)=>PRE_LIST.push({id:c+String(i+1).padStart(2,'0'),cat:c,catName:n,name:x})));
 const PSC=[['01','Certificates & Documentation'],['02','Structural condition'],['03','Water/Weathertight condition'],['04','Emergency systems'],['05','Radio communication'],['06','Cargo operations incl. equipment'],['07','Fire safety'],['08','Alarms'],['09','Working & living conditions'],['10','Safety of navigation'],['11','Life saving appliances'],['12','Dangerous goods'],['13','Propulsion & auxiliary machinery'],['14','Pollution prevention (MARPOL)'],['15','ISM'],['16','ISPS'],['18','MLC 2006'],['99','Other']];
 const DATE_KEYS=['Planned','In-Progress','Completed','Under Review','Follow Up','Closed'];
-const FOCUS_ZONE={id:'FOCUS',name:'QHSE Focus 2026 – FPP, TBT, Critical Equipment, I Listen',group:'General',kw:'fpp fatality tbt toolbox i listen critical equipment gloves loto gas detector'};
+const FOCUS_ZONE={main:'GENQ',id:'FOCUS',name:'QHSE Focus 2026 – FPP, TBT, Critical Equipment, I Listen',group:'General',kw:'fpp fatality tbt toolbox i listen critical equipment gloves loto gas detector'};
 const FOCUS_ITEMS=[
 {id:'QF-AA',q:'Fatality Prevention Program (FPP) – verify at least two FPP activities',pri:'Priority 1',group:'QHSE Focus',pre:'B01',zones:['FOCUS'],guid:'Crew understanding of intent, controls and expectations; embedded in daily operations, not paperwork; coach on the spot where gaps found; record observations, good practices and improvement areas.\nIf no FPP activity witnessed: structured crew interviews and record review (objectives, risks & controls, evidence of recent implementation).'},
 {id:'QF-BB',q:'Toolbox Meetings – witness at least two TBTs (one deck, one E/R)',pri:'Priority 1',group:'QHSE Focus',pre:'B05',zones:['FOCUS'],guid:'Location/appropriateness, crew participation, quality of hazard identification and controls, open communication and engagement. Coach as required.'},
 {id:'QF-CC',q:'Critical safety equipment – check any two categories',pri:'Priority 1',group:'QHSE Focus',pre:'B02',zones:['FOCUS'],guid:'Categories: gas detectors; remote draft gauging; fall prevention devices; HV insulation gloves; LOTO kits; Pro-cut / impact-resistant gloves (no cotton gloves).\nVerify condition; maintenance, calibration & certification; crew competency and correct use incl. limitations. Use demonstrations, interviews, record review.'},
 {id:'QF-DD',q:'I Listen safety feedback session (min 15 min, separate from QHSE meeting)',pri:'Priority 1',group:'QHSE Focus',pre:'B07',zones:['FOCUS'],guid:'Deck, engine and catering reps plus officers. Fill I Listen form; take a photo of the session; escalate items needing Khalid\'s attention. Follow up every suggestion – never give budget as the reason for not accepting one.\nTopics: PPE, H&S suggestions, good practice sharing, safety/MARPOL violations, other concerns; fleet major injuries, recent safety flash, TBT conduct, One-Minute Hazard ID Guide, Golden Rules card, Stop-work card.'}];
-const ESSENTIAL=['FOCUS','ECR','ME','BRIDGE','MAIN','FWD','POOP','BOAT','OFFICE','ACCOM','MARPOL','STEER','EMG','AE','ERAUX','PUR'];
-const LOW=['HULL','HOLDS','WORK','GEN'];
+const LOW_MAIN=['APT','FPT','BALLAST','DUCT','HULL','FUNNEL'];
 
 /* ================= IndexedDB ================= */
 let DB;
@@ -154,6 +155,11 @@ function saveNow(){clearTimeout(saveT);S.insp.updated=nowISO();return inspPut(S.
 
 /* ================= data helpers ================= */
 const zones=()=>S.pack?[...S.pack.zones,FOCUS_ZONE]:[];
+const mains=()=>S.pack?.mains||[{id:'ALL',name:'All areas',subs:zones().map(z=>z.id)}];
+const mainById=id=>mains().find(m=>m.id===id)||{id,name:id,subs:[]};
+const mainOfZone=zid=>mains().find(m=>m.subs.includes(zid))||mains()[0];
+const prevItems=()=>(S.pack?.prev?.[S.insp?.vesselId]||[]);
+function mainStats(mid){let n=0,d=0;mainById(mid).subs.forEach(z=>{const s=zoneStats(z);n+=s.n;d+=s.d});return{n,d}}
 const zoneById=id=>zones().find(z=>z.id===id)||{id,name:id};
 const clItems=()=>S.pack?[...FOCUS_ITEMS,...S.pack.checklist]:[];
 const caItems=()=>S.pack?S.pack.ca:[];
@@ -161,13 +167,13 @@ const priKey=p=>/PSC/.test(p)?'PSC':/1/.test(p)?'P1':'P2';
 function scopeLevel(){const d=+(S.insp.plan.days||3.5);return d>=3.5?'Full':d>=2?'Focused':'Critical'}
 function inScope(kind,it){const l=scopeLevel();if(l==='Full')return true;const p=priKey(it.pri);
   if(kind==='cl')return p!=='P2';return l==='Focused'?p!=='P2':p==='PSC'}
-function zoneStats(zid){let n=0,d=0;clItems().forEach(i=>{if(i.zones.includes(zid)&&inScope('cl',i)){n++;if(S.insp.cl[i.id]?.a)d++}});
+function zoneStats(zid){let n=0,d=0;prevItems().forEach(p=>{if(p.zone===zid){n++;if(S.insp.prev?.[p.id]?.a)d++}});clItems().forEach(i=>{if(i.zones.includes(zid)&&inScope('cl',i)){n++;if(S.insp.cl[i.id]?.a)d++}});
   caItems().forEach(i=>{if(i.zones.includes(zid)&&inScope('ca',i)){n++;if(S.insp.ca[i.id]?.a)d++}});return{n,d}}
 function newInspection(vid,vname){const id=vid+'-'+new Date().toISOString().slice(0,10)+'-'+uid().slice(-4);
   const dates={};DATE_KEYS.forEach(k=>dates[k]='');dates['Planned']=todayDMY();dates['In-Progress']=todayDMY();
   return{id,vessel:vname,vesselId:vid,status:'In progress',created:nowISO(),updated:nowISO(),appv:APPV,
    boarding:{port:'',embark:'',openStart:'',openEnd:'',closeStart:'',closeEnd:'',disembark:'',attendees:'Master, Chief Engineer, Chief Officer, 2nd Engineer',scope:'',tests:'',drills:'',crewBrief:true,obt:true,notes:''},
-   plan:{days:3.5,assign:{},notes:''},cl:{},ca:{},findings:[],preamble:{},exec:'',dates,lastExport:null,completedAt:null}}
+   plan:{days:3.5,assign:{},notes:''},cl:{},ca:{},prev:{},findings:[],preamble:{},exec:'',dates,lastExport:null,completedAt:null}}
 
 /* ================= rendering ================= */
 function header(title,opts={}){const h=$('#hdr');
@@ -176,13 +182,13 @@ function header(title,opts={}){const h=$('#hdr');
   const q=$('#q');if(q)q.oninput=e=>{S.q=e.target.value;renderBody()}}
 function tabs(){const t=$('#tabs');if(!S.insp||S.view==='home'){t.hidden=true;return}t.hidden=false;
   const T=[['boarding','⚓','Boarding'],['plan','🗓','Plan'],['areas','🧭','Areas'],['findings','⚠️','Findings'],['report','📝','Report'],['export','☁️','Sync']];
-  t.innerHTML=T.map(([v,i,l])=>`<button data-act="tab" data-v="${v}" class="${S.view===v||(v==='areas'&&S.view==='zone')?'on':''}"><b>${i}</b>${l}</button>`).join('')}
+  t.innerHTML=T.map(([v,i,l])=>`<button data-act="tab" data-v="${v}" class="${S.view===v||(v==='areas'&&['zone','main'].includes(S.view))?'on':''}"><b>${i}</b>${l}</button>`).join('')}
 function render(){tabs();const v=S.view;
   if(v==='home'){header('VM Inspection',{right:`<button data-act="settings">⚙︎</button>`})}
-  else{const nf=S.insp.findings.length;header(S.insp.vessel+(S.view==='zone'?' · '+zoneById(S.zone).name.split(' – ')[0]:''),{back:S.view==='zone',search:['areas','zone'].includes(v),right:`<span class="pill">${nf} F</span><button data-act="home">⌂</button>`})}
+  else{const nf=S.insp.findings.length;header(S.insp.vessel+(S.view==='zone'?' · '+mainOfZone(S.zone).name:S.view==='main'?' · '+mainById(S.main).name:''),{back:['zone','main'].includes(S.view),search:['areas','zone','main'].includes(v),right:`<span class="pill">${nf} F</span><button data-act="home">⌂</button>`})}
   renderBody()}
 function renderBody(){const a=$('#app');const y=window.scrollY;
-  const fn={home:vHome,boarding:vBoarding,plan:vPlan,areas:vAreas,zone:vZone,findings:vFindings,report:vReport,export:vExport}[S.view];
+  const fn={main:vMain,home:vHome,boarding:vBoarding,plan:vPlan,areas:vAreas,zone:vZone,findings:vFindings,report:vReport,export:vExport}[S.view];
   a.innerHTML=fn();if(S._keepScroll){window.scrollTo(0,y);S._keepScroll=false}loadThumbs()}
 
 function vHome(){let h='';
@@ -217,25 +223,33 @@ ${fld('boarding.disembark','Disembarked','datetime-local')}</div>
 function vPlan(){const l=scopeLevel();const days=Math.ceil(+(S.insp.plan.days||3.5));
   const opts=d=>['-',...Array.from({length:Math.max(days,1)},(_,i)=>String(i+1))].map(o=>`<option ${String(d)===o?'selected':''}>${o}</option>`).join('');
   let h=`<div class="card"><h3>Days available on board</h3><input type="number" step="0.5" min="0.5" max="6" data-bind="plan.days" data-num="1" value="${esc(S.insp.plan.days)}">
-  <p class="muted">Scope: <b>${l}</b> — ${l==='Full'?'all checklist and condition items.':l==='Focused'?'PSC + Priority 1 checklist and condition items (Priority 2 hidden).':'PSC + Priority 1 checklist; PSC condition items only.'} Hidden items can still be shown in each area.</p>
-  ${fld('plan.notes','Plan agreed with Master / CE','area','e.g. Day 1 PM ER while ME stopped, Day 2 cargo ops – deck after 1400')}
-  <button class="btn full sec" data-act="autoplan">Auto-plan areas over ${days} day(s)</button></div><h2>Areas by day</h2>`;
-  const A=S.insp.plan.assign;
-  zones().forEach(z=>{const st=zoneStats(z.id);h+=`<div class="prow"><span class="nm">${esc(z.name)}<br><span class="muted">${st.d}/${st.n} done · ${z.group}</span></span><select data-plan="${z.id}">${opts(A[z.id]??'-')}</select></div>`});
+  <p class="muted">Scope: <b>${l}</b> — ${l==='Full'?'all checklist and condition items.':l==='Focused'?'PSC + Priority 1 items; tanks, duct keel, hull and funnel top dropped.':'PSC + Priority 1 checklist, PSC condition items; tanks, duct keel, hull and funnel top dropped.'} Each area is kept whole on one day.</p>
+  ${fld('plan.notes','Plan agreed with Master / CE','area','e.g. Day 1 PM Engine Room while ME stopped; Day 2 cargo ops – deck after 1400')}
+  <button class="btn full sec" data-act="autoplan">Auto-plan areas over ${days} day(s)</button></div>`;
+  const A=S.insp.plan.assign;const load={};mains().forEach(m=>{const d=A[m.id];if(d&&d!=='-')load[d]=(load[d]||0)+mainStats(m.id).n});
+  h+=`<div class="card muted">Load per day: ${Object.keys(load).sort().map(d=>`Day ${d}: <b>${load[d]}</b> items`).join(' · ')||'not planned yet'}</div><h2>Main areas (walking order)</h2>`;
+  mains().forEach(m=>{const st=mainStats(m.id);h+=`<div class="prow"><span class="nm"><b>${esc(m.name)}</b><br><span class="muted">${st.d}/${st.n} done${m.subs.length>1?' · '+m.subs.length+' sub-areas':''}</span></span><select data-plan="${m.id}">${opts(A[m.id]??'-')}</select></div>`});
   return h}
-function autoplan(){const days=Math.ceil(+(S.insp.plan.days||3.5));const l=scopeLevel();const zs=zones().map(z=>z.id);
-  let order=[...ESSENTIAL,...LOW].filter(z=>zs.includes(z));if(l!=='Full')order=order.filter(z=>!LOW.includes(z)||(l==='Focused'&&z==='GEN'));
-  const w=order.map(z=>Math.max(zoneStats(z).n,4));const tot=w.reduce((a,b)=>a+b,0);const cap=tot/days;let d=1,acc=0;const A={};
-  zs.forEach(z=>A[z]='-');order.forEach((z,i)=>{if(acc>=cap*d&&d<days)d++;A[z]=String(d);acc+=w[i]});
-  // FOCUS spread: keep on day 1 (TBT / I Listen planning)
-  if(A.FOCUS!=='-')A.FOCUS='1';S.insp.plan.assign=A;save();renderBody();toast('Areas planned')}
-
+function autoplan(){const days=Math.ceil(+(S.insp.plan.days||3.5));const l=scopeLevel();const A={};
+  let order=mains().map(m=>m.id);if(l!=='Full')order=order.filter(m=>!LOW_MAIN.includes(m));
+  mains().forEach(m=>A[m.id]='-');const w=order.map(m=>Math.max(mainStats(m).n,3));
+  // optimal contiguous split in walking order: minimise the heaviest day (areas never split)
+  const n=order.length,k=Math.min(days,n),pre=[0];w.forEach(x=>pre.push(pre.at(-1)+x));
+  const B=Array.from({length:k+1},()=>Array(n+1).fill(Infinity)),C=Array.from({length:k+1},()=>Array(n+1).fill(0));B[0][0]=0;
+  for(let j=1;j<=k;j++)for(let i=1;i<=n;i++)for(let t=j-1;t<i;t++){const v=Math.max(B[j-1][t],pre[i]-pre[t]);if(v<B[j][i]){B[j][i]=v;C[j][i]=t}}
+  let i=n;for(let j=k;j>=1;j--){const t=C[j][i];for(let x=t;x<i;x++)A[order[x]]=String(j);i=t}
+  if(A.GENQ&&A.GENQ!=='-')A.GENQ='1';S.insp.plan.assign=A;save();renderBody();toast('Areas planned – whole areas per day')}
 function vAreas(){if(S.q.trim())return vSearch();const A=S.insp.plan.assign;const groups={};
-  zones().forEach(z=>{const d=A[z.id]&&A[z.id]!=='-'?'Day '+A[z.id]:'Not planned';(groups[d]=groups[d]||[]).push(z)});
+  mains().forEach(m=>{const d=A[m.id]&&A[m.id]!=='-'?'Day '+A[m.id]:'Not planned';(groups[d]=groups[d]||[]).push(m)});
   const keys=Object.keys(groups).sort((a,b)=>a==='Not planned'?1:b==='Not planned'?-1:a.localeCompare(b));
-  let tn=0,td=0;zones().forEach(z=>{const s=zoneStats(z.id);tn+=s.n;td+=s.d});
-  let h=`<div class="card"><b>Progress ${td}/${tn}</b> <span class="pill">${scopeLevel()} scope</span><div class="bar"><i style="width:${tn?td/tn*100:0}%"></i></div></div><div class="zlist">`;
-  keys.forEach(k=>{h+=`<h2>${k}</h2>`;groups[k].forEach(z=>{const s=zoneStats(z.id);h+=`<button class="z" data-act="zone" data-id="${z.id}"><span class="nm">${esc(z.name)}<div class="bar"><i style="width:${s.n?s.d/s.n*100:0}%"></i></div></span><span class="pc">${s.d}/${s.n}</span>›</button>`})});
+  let tn=0,td=0;mains().forEach(m=>{const s=mainStats(m.id);tn+=s.n;td+=s.d});const np=prevItems().length;
+  let h=`<div class="card"><b>Progress ${td}/${tn}</b> <span class="pill">${scopeLevel()} scope</span>${np?` <span class="pill">${np} previous findings to verify</span>`:''}<div class="bar"><i style="width:${tn?td/tn*100:0}%"></i></div></div><div class="zlist">`;
+  keys.forEach(k=>{h+=`<h2>${k}</h2>`;groups[k].forEach(m=>{const s=mainStats(m.id);const pv=prevItems().filter(p=>m.subs.includes(p.zone)).length;
+    h+=`<button class="z" data-act="main" data-id="${m.id}"><span class="nm"><b>${esc(m.name)}</b>${pv?` <span class="pri PSC">${pv} prev</span>`:''}<div class="bar"><i style="width:${s.n?s.d/s.n*100:0}%"></i></div></span><span class="pc">${s.d}/${s.n}</span>›</button>`})});
+  return h+'</div>'}
+function vMain(){if(S.q.trim())return vSearch();const m=mainById(S.main);
+  let h=`<div class="card"><b>${esc(m.name)}</b><div class="muted">${m.subs.length} sub-areas · finish this area before moving on</div></div><div class="zlist">`;
+  m.subs.forEach(zid=>{const z=zoneById(zid);const s=zoneStats(zid);h+=`<button class="z" data-act="zone" data-id="${zid}"><span class="nm">${esc(z.name)}<div class="bar"><i style="width:${s.n?s.d/s.n*100:0}%"></i></div></span><span class="pc">${s.d}/${s.n}</span>›</button>`});
   return h+'</div>'}
 function itemMedia(k,id){return S.media.filter(m=>m[k]===id)}
 function mediaThumbs(list){return list.length?`<div class="thumbs">${list.map(m=>`<button class="th ${m.findingId?'f':''}" data-act="viewMedia" data-id="${m.id}" data-thumb="${m.kind==='photo'?m.id:''}">${m.kind==='video'?'🎥':m.kind==='voice'?'🎙':''}</button>`).join('')}</div>`:''}
@@ -258,23 +272,29 @@ function caCard(i,zid){const r=S.insp.ca[i.id]||{};const out=!inScope('ca',i);co
   ${i.guid?`<details class="guid" ${S.settings.openGuid?'open':''}><summary>Jibe guidance</summary><div>${esc(i.guid)}</div></details>`:''}
   <textarea data-rem="ca:${i.id}" placeholder="Remarks (tap 🎤 on keyboard to dictate)">${esc(r.rem||'')}</textarea>
   ${capRow({zone:zid||i.zones[0],ca:i.id})}${mediaThumbs(itemMedia('caId',i.id))}${findChips('caId',i.id)}</div>`}
-function vZone(){if(S.q.trim())return vSearch();const z=zoneById(S.zone);const f=S.filter;
+function prevCard(p){const r=S.insp.prev?.[p.id]||{};
+  return`<div class="item ${r.a?'done':''} ${r.a==='Open'||r.a==='Repeat'?'flag':''}" id="it-${p.id}"><div class="ih"><span class="code">${esc(p.src)}</span>${p.ref?`<span class="tag">${esc(p.ref)}</span>`:''}${p.date?`<span class="tag">${esc(p.date)}</span>`:''}</div>
+  <div class="q">${esc(p.text)}</div>${p.action?`<details class="guid"><summary>Action taken / reported closure</summary><div>${esc(p.action)}</div></details>`:''}
+  <div class="seg" data-k="prev" data-id="${p.id}">${['Closed','Open','Repeat','NA'].map(a=>`<button data-act="ans" data-v="${a}" class="${r.a===a?'on':''}">${a}</button>`).join('')}</div>
+  <textarea data-rem="prev:${p.id}" placeholder="Verification remarks">${esc(r.rem||'')}</textarea>${capRow({zone:p.zone,prev:p.id})}${mediaThumbs(S.media.filter(x=>x.prevId===p.id))}${S.insp.findings.filter(f=>f.prevId===p.id).map(f=>`<button class="chip" data-act="editFinding" data-id="${f.id}">⚠️ F${f.no} ${esc(f.title||'(untitled)')}</button>`).join('')}</div>`}
+function vZone(){if(S.q.trim())return vSearch();const z=zoneById(S.zone);const f=S.filter;const PV=prevItems().filter(p=>p.zone===z.id);
   let cl=clItems().filter(i=>i.zones.includes(z.id)),ca=caItems().filter(i=>i.zones.includes(z.id));
   const hidden=cl.filter(i=>!inScope('cl',i)).length+ca.filter(i=>!inScope('ca',i)).length;
   if(!S.showOut){cl=cl.filter(i=>inScope('cl',i));ca=ca.filter(i=>inScope('ca',i))}
-  const gen=S.media.filter(m=>m.zone===z.id&&!m.clId&&!m.caId);
+  const gen=S.media.filter(m=>m.zone===z.id&&!m.clId&&!m.caId&&!m.prevId&&!m.findingId);
   let h=`<div class="card"><b>${esc(z.name)}</b><div class="muted">${cl.length} checklist · ${ca.length} condition items${hidden?` · <a href="#" data-act="toggleOut">${S.showOut?'hide':'show'} ${hidden} out-of-scope</a>`:''}</div>
   <h3>General photos / findings for this area</h3>${capRow({zone:z.id})}${mediaThumbs(gen)}${S.insp.findings.filter(x=>x.zone===z.id&&!x.clId&&!x.caId).map(x=>`<button class="chip" data-act="editFinding" data-id="${x.id}">⚠️ F${x.no} ${esc(x.title||'(untitled)')}</button>`).join('')}</div>
-  <div class="filt">${[['all','All'],['cl','Checklist'],['ca','Condition'],['open','Not done']].map(([k,l])=>`<button data-act="filt" data-v="${k}" class="${f===k?'on':''}">${l}</button>`).join('')}</div>`;
+  ${PV.length?`<h2>Previous findings to verify (${PV.length})</h2>`+PV.map(prevCard).join(''):''}<div class="filt">${[['all','All'],['cl','Checklist'],['ca','Condition'],['open','Not done']].map(([k,l])=>`<button data-act="filt" data-v="${k}" class="${f===k?'on':''}">${l}</button>`).join('')}</div>`;
   const nd=(k,i)=>!S.insp[k][i.id]?.a;
   if(f!=='ca'){const L=cl.filter(i=>f!=='open'||nd('cl',i));if(L.length)h+=`<h2>Jibe checklist</h2>`+L.map(i=>clCard(i,z.id)).join('')}
   if(f!=='cl'){const L=ca.filter(i=>f!=='open'||nd('ca',i));if(L.length)h+=`<h2>Condition assessment</h2>`+L.map(i=>caCard(i,z.id)).join('')}
   return h}
 function vSearch(){const t=S.q.toLowerCase().trim().split(/\s+/);const m=s=>t.every(w=>s.toLowerCase().includes(w));
-  const Z=zones().filter(z=>m(z.name+' '+z.kw+' '+z.id));
+  const Z=zones().filter(z=>m(z.name+' '+z.kw+' '+z.id+' '+mainOfZone(z.id).name));const P=prevItems().filter(p=>m(p.text+' '+p.src+' '+(p.ref||'')));
   const C=clItems().filter(i=>m(i.id+' '+i.q+' '+i.group+' '+(i.loc||'')+' '+i.guid)).slice(0,25);
   const A=caItems().filter(i=>m(i.comp+' '+i.cat+' '+(i.kw||''))).slice(0,25);
-  let h='';if(Z.length)h+=`<h2>Areas</h2><div class="zlist">`+Z.map(z=>`<button class="z" data-act="zone" data-id="${z.id}"><span class="nm">${esc(z.name)}</span>›</button>`).join('')+'</div>';
+  let h='';if(Z.length)h+=`<h2>Areas</h2><div class="zlist">`+Z.map(z=>`<button class="z" data-act="zone" data-id="${z.id}"><span class="nm">${esc(z.name)}<br><span class="muted">${esc(mainOfZone(z.id).name)}</span></span>›</button>`).join('')+'</div>';
+  if(P.length)h+=`<h2>Previous findings (${P.length})</h2>`+P.map(prevCard).join('');
   if(A.length)h+=`<h2>Condition / machinery (${A.length})</h2>`+A.map(i=>caCard(i,null)).join('');
   if(C.length)h+=`<h2>Checklist (${C.length})</h2>`+C.map(i=>clCard(i,null)).join('');
   return h||`<p class="muted">No match for “${esc(S.q)}”.</p>`}
@@ -290,11 +310,12 @@ function execText(){const b=S.insp.boarding;const tm=v=>v?v.slice(11,16).replace
   add.push('Test of '+((b.tests||'').split('\n').map(s=>s.trim()).filter(Boolean).join(', ')||'---------')+', Alarms and Inactive functions');
   add.push('Drills'+((b.drills||'').trim()?' ('+b.drills.split('\n').map(s=>s.trim()).filter(Boolean).join(', ')+')':''));
   return`Executive Summary\nThe inspector embarked the vessel at ${tm(b.embark)} hrs. on ${dt(b.embark)}${b.port?' at '+b.port:''}. Opening meeting was conducted from ${tm(b.openStart)} hrs. to ${tm(b.openEnd)} hrs. on ${dt(b.openStart)}, which was attended by all senior officers. During this meeting, the scope & schedule of the inspection was explained.\n\nScope of Inspection\n${(sc.length?sc:['----------------------------']).map(s=>'- '+s).join('\n')}\n\nAdditionally, the inspection included the following:\n${add.map(s=>'- '+s).join('\n')}\n\nClosing meeting was conducted from ${tm(b.closeStart)} hrs. to ${tm(b.closeEnd)} hrs. on ${dt(b.closeStart)}, which was attended by all senior officers. The inspector disembarked from the vessel at ${tm(b.disembark)} hrs. on ${dt(b.disembark)}.`}
+function preCap(id){const ms=S.media.filter(m=>m.preId===id);return`<div class="cap" style="grid-template-columns:1fr 1fr"><button data-act="cap" data-kind="voice" data-pre="${id}" data-zone="GEN"><b>🎙</b>Voice note</button><button data-act="cap" data-kind="photo" data-pre="${id}" data-zone="GEN"><b>📷</b>Photo</button></div>${mediaThumbs(ms)}`}
 function vReport(){const I=S.insp;let h=`<div class="card"><h3>Executive Summary <span class="muted">(${(I.exec||'').length}/10000)</span></h3>
   <p class="muted">Built from Boarding tab. Final format to follow your chosen chat template.</p><button class="btn sec full" data-act="genExec">Fill from boarding data</button>
-  <textarea data-bind="exec" style="min-height:260px;margin-top:8px">${esc(I.exec)}</textarea></div><h2>Preamble</h2>`;
+  <textarea data-bind="exec" style="min-height:260px;margin-top:8px">${esc(I.exec)}</textarea>${preCap('EXEC')}</div><h2>Preamble</h2>`;
   PREAMBLE.forEach(([c,n,subs])=>{h+=`<div class="card"><h3>${c} – ${esc(n)}</h3>`;subs.forEach((s,ix)=>{const id=c+String(ix+1).padStart(2,'0');const nf=I.findings.filter(f=>f.pre===id).length;
-    h+=`<label>${String(ix+1).padStart(2,'0')} – ${esc(s)}${nf?` · <a href="#" data-act="preIns" data-id="${id}">insert ${nf} finding(s)</a>`:''}</label><textarea data-bind="preamble.${id}">${esc(I.preamble[id]||'')}</textarea>`});h+='</div>'});
+    h+=`<label>${String(ix+1).padStart(2,'0')} – ${esc(s)}${nf?` · <a href="#" data-act="preIns" data-id="${id}">insert ${nf} finding(s)</a>`:''}</label><textarea data-bind="preamble.${id}">${esc(I.preamble[id]||'')}</textarea>${preCap(id)}`});h+='</div>'});
   h+=`<div class="card"><h3>Dates</h3>${DATE_KEYS.map(k=>`<label>${k}</label><input data-bind="dates.${k}" value="${esc(I.dates[k]||'')}" placeholder="NA">`).join('')}</div>`;
   h+=I.status==='Completed'?`<div class="card"><b>✅ Completed ${I.completedAt?.slice(0,16).replace('T',' ')}</b><button class="btn sec full" data-act="reopen">Reopen inspection</button></div>`
    :`<button class="btn grn full" data-act="complete">✔︎ Complete inspection</button>`;return h}
@@ -313,7 +334,7 @@ function modal(html){$('#modal').innerHTML=`<div class="modal" data-act="closeBg
 function closeModal(){$('#modal').innerHTML='';stopRec(true)}
 function nextNo(){return S.insp.findings.reduce((m,f)=>Math.max(m,f.no),0)+1}
 function createFinding(ctx){const cl=ctx.cl?clItems().find(i=>i.id===ctx.cl):null;
-  const f={id:'F'+uid(),no:nextNo(),title:'',text:'',type:'Finding',zone:ctx.zone||(cl?cl.zones[0]:'GEN'),clId:ctx.cl||'',caId:ctx.ca||'',pre:cl?.pre||'',psc:'',rs:false,ts:nowISO(),fresh:true};
+  const f={id:'F'+uid(),no:nextNo(),title:'',text:'',type:'Finding',zone:ctx.zone||(cl?cl.zones[0]:'GEN'),clId:ctx.cl||'',caId:ctx.ca||'',prevId:ctx.prev||'',pre:cl?.pre||'',psc:'',rs:false,ts:nowISO(),fresh:true};
   S.insp.findings.push(f);save();return f}
 function findingSheet(f){const zOpts=zones().map(z=>`<option value="${z.id}" ${f.zone===z.id?'selected':''}>${esc(z.name)}</option>`).join('');
   const preO=`<option value="">—</option>`+PRE_LIST.map(p=>`<option value="${p.id}" ${f.pre===p.id?'selected':''}>${p.cat} ${p.id.slice(1)} – ${esc(p.name)}</option>`).join('');
@@ -354,6 +375,8 @@ async function recSave(){if(!REC)return;const txt=$('#recTxt').value.trim();if(R
   if(!REC.blob&&!txt){toast('Nothing recorded');return}const ctx=REC.ctx;
   if(REC.blob)await addMedia(REC.blob,'voice',ctx,txt);
   if(txt&&ctx.finding){const f=S.insp.findings.find(x=>x.id===ctx.finding);if(f){f.text=(f.text?f.text+'\n':'')+txt;save()}}
+  else if(txt&&ctx.pre){if(ctx.pre==='EXEC')S.insp.exec=(S.insp.exec?S.insp.exec+'\n':'')+txt;else S.insp.preamble[ctx.pre]=(S.insp.preamble[ctx.pre]?S.insp.preamble[ctx.pre]+'\n':'')+txt;save()}
+  else if(txt&&ctx.prev){const r=(S.insp.prev=S.insp.prev||{})[ctx.prev]=S.insp.prev[ctx.prev]||{};r.rem=(r.rem?r.rem+'\n':'')+txt;save()}
   else if(txt&&(ctx.cl||ctx.ca)){const k=ctx.cl?'cl':'ca',id=ctx.cl||ctx.ca;const r=S.insp[k][id]=S.insp[k][id]||{};r.rem=(r.rem?r.rem+'\n':'')+txt;save()}
   REC=null;$('#modal').innerHTML='';if(ctx.finding){findingSheet(S.insp.findings.find(x=>x.id===ctx.finding))}S._keepScroll=true;renderBody();toast('Voice note saved')}
 async function viewMedia(id){const m=await mediaGet(id);if(!m)return;const u=URL.createObjectURL(m.blob);
@@ -366,7 +389,7 @@ async function viewMedia(id){const m=await mediaGet(id);if(!m)return;const u=URL
 function settingsSheet(){modal(`<div class="top"><h2>Settings</h2><button class="btn sec" data-act="close">Close</button></div>
   <label><input type="checkbox" style="width:auto" data-set="compress" ${S.settings.compress?'checked':''}> Compress photos to 2048 px (saves space, ~0.5 MB each)</label>
   <label><input type="checkbox" style="width:auto" data-set="openGuid" ${S.settings.openGuid?'checked':''}> Always expand Jibe guidance</label>
-  <button class="btn sec full" data-act="importPack">Import / update data pack</button>
+  <button class="btn sec full" data-act="importPack">Import data pack / previous findings</button>
   <button class="btn sec full" data-act="persist">Protect storage from iOS clean-up</button>
   <p class="muted">Data pack: ${S.pack?esc(S.pack.version)+' · '+S.pack.checklist.length+' checklist · '+S.pack.ca.length+' condition items':'not loaded'}</p>`)}
 
@@ -374,7 +397,7 @@ function settingsSheet(){modal(`<div class="top"><h2>Settings</h2><button class=
 async function compressImg(file){if(!S.settings.compress)return file;try{const bmp=await createImageBitmap(file);const M=2048;const k=Math.min(1,M/Math.max(bmp.width,bmp.height));
   const c=document.createElement('canvas');c.width=Math.round(bmp.width*k);c.height=Math.round(bmp.height*k);c.getContext('2d').drawImage(bmp,0,0,c.width,c.height);
   return await new Promise(r=>c.toBlob(b=>r(b||file),'image/jpeg',.82))}catch(e){return file}}
-async function addMedia(blob,kind,ctx,caption=''){const m={id:'M'+uid(),inspId:S.insp.id,kind,mime:blob.type||'',size:blob.size,blob,zone:ctx.zone||'GEN',clId:ctx.cl||'',caId:ctx.ca||'',findingId:ctx.finding||'',caption,ts:nowISO()};
+async function addMedia(blob,kind,ctx,caption=''){const m={id:'M'+uid(),inspId:S.insp.id,kind,mime:blob.type||'',size:blob.size,blob,zone:ctx.zone||'GEN',clId:ctx.cl||'',caId:ctx.ca||'',findingId:ctx.finding||'',prevId:ctx.prev||'',preId:ctx.pre||'',caption,ts:nowISO()};
   await mediaPut(m);const {blob:_,...meta}=m;S.media.push(meta);return m}
 let PEND=null;
 async function onFile(e,kind){const files=[...e.target.files];e.target.value='';if(!files.length||!PEND)return;const ctx=PEND;PEND=null;
@@ -402,22 +425,27 @@ async function makeZip(entries,prog){const enc=new TextEncoder();const parts=[],
 const safe=s=>String(s||'').replace(/[\\/:*?"<>|]+/g,'-').replace(/\s+/g,' ').trim().slice(0,70);
 const csv=rows=>rows.map(r=>r.map(v=>{v=String(v??'');return/[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}).join(',')).join('\r\n');
 function extOf(m){const t=m.mime||'';return t.includes('jpeg')?'jpg':t.includes('png')?'png':t.includes('heic')?'heic':t.includes('quicktime')?'mov':t.includes('mp4')?(m.kind==='voice'?'m4a':'mp4'):t.includes('webm')?'webm':t.includes('aac')?'aac':m.kind==='photo'?'jpg':'bin'}
-function zoneFolder(zid){const zs=zones();const i=zs.findIndex(z=>z.id===zid);return String(i+1).padStart(2,'0')+' '+safe(zoneById(zid).name)}
+function mainFolder(zid){const ms=mains();const m=mainOfZone(zid);const i=ms.findIndex(x=>x.id===m.id);return String(i+1).padStart(2,'0')+' '+safe(m.name)}
+function inspFolderName(I){const d=new Date(I.created);const dd=String(d.getDate()).padStart(2,'0')+'-'+d.toLocaleString('en-GB',{month:'short'})+'-'+d.getFullYear();return`My inspection (${safe(I.boarding.port||'Location')}) (${dd})`}
+function mediaPath(m){const I=S.insp;const fn=f=>'F'+String(f.no).padStart(3,'0');
+  const base=m.ts.slice(0,19).replace(/[-:]/g,'').replace('T','_')+'_'+m.kind+'_'+m.id.slice(-5)+'.'+extOf(m);
+  if(m.findingId){const f=I.findings.find(x=>x.id===m.findingId);return`Findings/${f?fn(f)+' '+safe(f.title||'untitled'):'unlinked'}/${base}`}
+  if(m.preId)return`Report notes/${m.preId==='EXEC'?'Executive Summary':m.preId+' '+safe(PRE_LIST.find(p=>p.id===m.preId)?.name)}/${base}`;
+  const top=m.kind==='video'?'Videos':'Photos';const z=zoneById(m.zone);const sub=mainOfZone(m.zone).subs.length>1?safe(z.name.split(' – ')[0])+'/':'';
+  const leaf=m.clId?`Checklist ${m.clId}/`:m.caId?`Condition ${safe(caItems().find(c=>c.id===m.caId)?.comp)}/`:m.prevId?`Previous finding ${safe(prevItems().find(p=>p.id===m.prevId)?.ref||m.prevId)}/`:'General/';
+  return`${top}/${mainFolder(m.zone)}/${sub}${leaf}${base}`}
 async function buildZip(){const I=S.insp;const onlyNew=$('#exNew').checked,vid=$('#exVid').checked;const out=$('#zipOut');out.innerHTML='<p class="muted">Building…</p>';
-  await saveNow();const root=`${safe(I.vessel)}/${I.created.slice(0,10)} VMI ${I.id.slice(-4)}/`;const E=[];
-  const zn=z=>zoneById(z).name;const fn=f=>'F'+String(f.no).padStart(3,'0');
-  E.push({name:root+'data/inspection.json',data:JSON.stringify({...I,mediaIndex:S.media.map(m=>({...m}))},null,1)});
-  E.push({name:root+'data/Checklist.csv',data:csv([['Question Number','Question','Answer','Remarks','Group','Priority','Area(s)','Findings'],...clItems().map(i=>[i.id,i.q,I.cl[i.id]?.a||'',I.cl[i.id]?.rem||'',i.group,i.pri,i.zones.map(zn).join(' | '),I.findings.filter(f=>f.clId===i.id).map(fn).join(' ')])])});
-  E.push({name:root+'data/Condition_Assessment.csv',data:csv([['Operational Category','Component','Answer','Remarks','Priority','Area(s)','Findings'],...caItems().map(i=>[i.cat,i.comp,I.ca[i.id]?.a||'',I.ca[i.id]?.rem||'',i.pri,i.zones.map(zn).join(' | '),I.findings.filter(f=>f.caId===i.id).map(fn).join(' ')])])});
-  E.push({name:root+'data/Findings.csv',data:csv([['No','Type','Title','Description','Area','Checklist','Condition item','Preamble','PSC area','RightShip','Media','Time'],...[...I.findings].sort((a,b)=>a.no-b.no).map(f=>[fn(f),f.type,f.title,f.text,zn(f.zone),f.clId,caItems().find(c=>c.id===f.caId)?.comp||'',f.pre,f.psc,f.rs?'Yes':'',S.media.filter(m=>m.findingId===f.id).length,f.ts])])});
-  E.push({name:root+'report/Executive_Summary.txt',data:I.exec||execText()});
-  E.push({name:root+'report/Preamble.txt',data:PREAMBLE.map(([c,n,s])=>c+' - '+n+'\n'+s.map((x,i)=>{const id=c+String(i+1).padStart(2,'0');return String(i+1).padStart(2,'0')+' - '+x+'\n'+(I.preamble[id]||'')}).join('\n')).join('\n\n')+'\n\nDates\n'+DATE_KEYS.map(k=>k+': '+(I.dates[k]||'NA')).join('\n')});
-  let ms=S.media.filter(m=>(!onlyNew||!I.lastExport||m.ts>I.lastExport)&&(vid||m.kind!=='video'));
-  for(const m of ms){const full=await mediaGet(m.id);if(!full)continue;const base=m.ts.slice(0,19).replace(/[-:]/g,'').replace('T','_')+'_'+m.kind+'.'+extOf(m);let path;
-    if(m.findingId){const f=I.findings.find(x=>x.id===m.findingId);path=`Findings/${f?fn(f)+' '+safe(f.title||'untitled'):'orphan'}/`}
-    else{path=`Areas/${zoneFolder(m.zone)}/`+(m.clId?`Checklist ${m.clId}/`:m.caId?`Condition ${safe(caItems().find(c=>c.id===m.caId)?.comp)}/`:'General/')}
-    E.push({name:root+path+base,data:full.blob})}
-  I.findings.forEach(f=>E.push({name:`${root}Findings/${fn(f)} ${safe(f.title||'untitled')}/finding.txt`,data:`${fn(f)} [${f.type}] ${f.title}\nArea: ${zn(f.zone)}\nChecklist: ${f.clId}\nCondition: ${caItems().find(c=>c.id===f.caId)?.comp||''}\nPreamble: ${f.pre}\nPSC: ${f.psc}\nRightShip: ${f.rs?'Yes':'No'}\n\n${f.text}`}));
+  await saveNow();const root=`${safe(I.vessel)}/${inspFolderName(I)}/`;const E=[];
+  const zn=z=>mainOfZone(z).name+' › '+zoneById(z).name;const fn=f=>'F'+String(f.no).padStart(3,'0');
+  E.push({name:root+'_data/inspection.json',data:JSON.stringify({...I,appv:APPV,folder:inspFolderName(I),previousFindings:prevItems(),zoneNames:Object.fromEntries(zones().map(z=>[z.id,mainOfZone(z.id).name+(mainOfZone(z.id).subs.length>1?' › '+z.name:'')])),mediaIndex:S.media.map(m=>({...m,file:mediaPath(m)}))},null,1)});
+  E.push({name:root+'_data/Checklist.csv',data:csv([['Question Number','Question','Answer','Remarks','Group','Priority','Area(s)','Findings'],...clItems().map(i=>[i.id,i.q,I.cl[i.id]?.a||'',I.cl[i.id]?.rem||'',i.group,i.pri,i.zones.map(zn).join(' | '),I.findings.filter(f=>f.clId===i.id).map(fn).join(' ')])])});
+  E.push({name:root+'_data/Condition_Assessment.csv',data:csv([['Operational Category','Component','Answer','Remarks','Priority','Area(s)','Findings'],...caItems().map(i=>[i.cat,i.comp,I.ca[i.id]?.a||'',I.ca[i.id]?.rem||'',i.pri,i.zones.map(zn).join(' | '),I.findings.filter(f=>f.caId===i.id).map(fn).join(' ')])])});
+  E.push({name:root+'_data/Previous_Findings.csv',data:csv([['Source','Ref','Date','Finding','Area','Status now','Remarks'],...prevItems().map(p=>[p.src,p.ref,p.date,p.text,zn(p.zone),I.prev?.[p.id]?.a||'',I.prev?.[p.id]?.rem||''])])});
+  E.push({name:root+'_data/Findings.csv',data:csv([['No','Type','Title','Description','Area','Checklist','Condition item','Previous finding','Preamble','PSC area','RightShip','Media','Time'],...[...I.findings].sort((a,b)=>a.no-b.no).map(f=>[fn(f),f.type,f.title,f.text,zn(f.zone),f.clId,caItems().find(c=>c.id===f.caId)?.comp||'',prevItems().find(p=>p.id===f.prevId)?.ref||'',f.pre,f.psc,f.rs?'Yes':'',S.media.filter(m=>m.findingId===f.id).length,f.ts])])});
+  E.push({name:root+'_data/Executive_Summary_draft.txt',data:I.exec||execText()});
+  E.push({name:root+'_data/Preamble_draft.txt',data:PREAMBLE.map(([c,n,sb])=>c+' - '+n+'\n'+sb.map((x,i)=>{const id=c+String(i+1).padStart(2,'0');return String(i+1).padStart(2,'0')+' - '+x+'\n'+(I.preamble[id]||'')}).join('\n')).join('\n\n')+'\n\nDates\n'+DATE_KEYS.map(k=>k+': '+(I.dates[k]||'NA')).join('\n')});
+  const ms=S.media.filter(m=>(!onlyNew||!I.lastExport||m.ts>I.lastExport)&&(vid||m.kind!=='video'));
+  for(const m of ms){const full=await mediaGet(m.id);if(!full)continue;E.push({name:root+mediaPath(m),data:full.blob})}
   const zip=await makeZip(E,(i,n)=>{out.innerHTML=`<p class="muted">Packing ${i+1}/${n}…</p>`});
   const stamp=new Date().toISOString().slice(0,16).replace(/[-:T]/g,'');const name=`VMI_${I.vesselId}_${stamp}.zip`;S.zip=new File([zip],name,{type:'application/zip'});S.zipStamp=nowISO();
   const url=URL.createObjectURL(zip);out.innerHTML=`<p><b>${name}</b> · ${(zip.size/1048576).toFixed(1)} MB · ${ms.length} media</p><button class="btn grn full" data-act="shareZip">Share → Save to Files (OneDrive)</button><a class="btn sec full" style="text-align:center" href="${url}" download="${name}">Download instead</a><button class="btn sec full" data-act="markSynced">Mark as synced</button>`}
@@ -429,7 +457,8 @@ document.addEventListener('click',async e=>{const t=e.target.closest('[data-act]
   if(a==='closeBg'){if(e.target===t){if(S.curFinding){closeFinding(S.curFinding.id)}else closeModal()}return}
   if(t.tagName==='A')e.preventDefault();
   switch(a){
-  case'back':S.view='areas';S.q='';render();window.scrollTo(0,0);break;
+  case'back':{const m=S.view==='zone'?mainOfZone(S.zone):null;S.view=(m&&m.subs.length>1)?'main':'areas';if(S.view==='main')S.main=m.id;S.q='';render();window.scrollTo(0,0);break}
+  case'main':{const m=mainById(d.id);if(m.subs.length===1){S.zone=m.subs[0];S.view='zone';S.filter='all';S.showOut=false}else{S.main=d.id;S.view='main'}S.q='';render();window.scrollTo(0,0);break}
   case'tab':S.view=d.v;S.q='';render();window.scrollTo(0,0);if(d.v==='export')storInfo();break;
   case'settings':settingsSheet();break;
   case'importPack':$('#fPack').click();break;
@@ -442,12 +471,12 @@ document.addEventListener('click',async e=>{const t=e.target.closest('[data-act]
   case'zone':S.zone=d.id;S.view='zone';S.q='';S.filter='all';S.showOut=false;render();window.scrollTo(0,0);break;
   case'filt':S.filter=d.v;renderBody();break;
   case'toggleOut':S.showOut=!S.showOut;renderBody();break;
-  case'ans':{const seg=t.parentElement;const k=seg.dataset.k,id=seg.dataset.id;const r=S.insp[k][id]=S.insp[k][id]||{};r.a=r.a===d.v?'':d.v;r.ts=nowISO();save();
+  case'ans':{const seg=t.parentElement;const k=seg.dataset.k,id=seg.dataset.id;S.insp[k]=S.insp[k]||{};const r=S.insp[k][id]=S.insp[k][id]||{};r.a=r.a===d.v?'':d.v;r.ts=nowISO();save();
     seg.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.v===r.a));const card=seg.closest('.item');card.classList.toggle('done',!!r.a);
-    if(['No','Poor','Unsatisfactory'].includes(r.a)){card.classList.add('flag');toast('Tap ⚠️ Finding to record it')}break}
-  case'cap':{const ctx={zone:d.zone||'',cl:d.cl||'',ca:d.ca||'',finding:d.finding||''};if(d.kind==='voice'){voiceSheet(ctx);break}PEND=ctx;$(d.kind==='video'?'#fVideo':'#fPhoto').click();break}
+    if(['No','Poor','Unsatisfactory','Open','Repeat'].includes(r.a)){card.classList.add('flag');toast('Tap ⚠️ Finding to record it')}break}
+  case'cap':{const ctx={zone:d.zone||'',cl:d.cl||'',ca:d.ca||'',finding:d.finding||'',prev:d.prev||'',pre:d.pre||''};if(d.kind==='voice'){voiceSheet(ctx);break}PEND=ctx;$(d.kind==='video'?'#fVideo':'#fPhoto').click();break}
   case'libPick':PEND={finding:d.finding,zone:S.curFinding.zone,cl:S.curFinding.clId,ca:S.curFinding.caId};$('#fLib').click();break;
-  case'newFinding':{const f=createFinding({zone:d.zone||(S.view==='zone'?S.zone:'GEN'),cl:d.cl||'',ca:d.ca||''});findingSheet(f);break}
+  case'newFinding':{const f=createFinding({zone:d.zone||(S.view==='zone'?S.zone:'GEN'),cl:d.cl||'',ca:d.ca||'',prev:d.prev||''});findingSheet(f);break}
   case'editFinding':findingSheet(S.insp.findings.find(f=>f.id===d.id));break;
   case'closeFinding':closeFinding(d.id);break;
   case'delFinding':{const ms=S.media.filter(m=>m.findingId===d.id);if(!t.dataset.sure){t.dataset.sure=1;t.textContent=`Tap again to delete finding${ms.length?' + '+ms.length+' media':''}`;break}
@@ -466,7 +495,7 @@ function closeFinding(id){const f=S.insp.findings.find(x=>x.id===id);if(f){delet
   save();S.curFinding=null;closeModal();S._keepScroll=true;render()}
 document.addEventListener('input',e=>{const t=e.target;
   if(t.dataset.bind){let v=t.value;if(t.dataset.num)v=+v||'';setPath(t.dataset.bind,v);save();if(t.dataset.bind==='plan.days'){clearTimeout(S._pd);S._pd=setTimeout(()=>{S._keepScroll=true;renderBody()},700)}}
-  if(t.dataset.rem){const[k,id]=t.dataset.rem.split(':');const r=S.insp[k][id]=S.insp[k][id]||{};r.rem=t.value;save()}
+  if(t.dataset.rem){const[k,id]=t.dataset.rem.split(':');S.insp[k]=S.insp[k]||{};const r=S.insp[k][id]=S.insp[k][id]||{};r.rem=t.value;save()}
   if(t.dataset.fb&&S.curFinding){S.curFinding[t.dataset.fb]=t.value;save()}
   if(t.dataset.mcap){const id=t.dataset.mcap;mediaGet(id).then(m=>{m.caption=t.value;mediaPut(m)});const mm=S.media.find(x=>x.id===id);if(mm)mm.caption=t.value}});
 document.addEventListener('change',e=>{const t=e.target;
@@ -476,7 +505,9 @@ document.addEventListener('change',e=>{const t=e.target;
   if(t.dataset.plan){S.insp.plan.assign[t.dataset.plan]=t.value;save()}
   if(t.dataset.set){S.settings[t.dataset.set]=t.checked;kvSet('settings',S.settings);S._keepScroll=true;renderBody()}});
 $('#fPhoto').onchange=e=>onFile(e,'photo');$('#fVideo').onchange=e=>onFile(e,'video');$('#fLib').onchange=e=>onFile(e,null);
-$('#fPack').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;try{const p=JSON.parse(await f.text());if(!p.zones||!p.checklist||!p.ca)throw Error('not a VMI data pack');
+$('#fPack').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;try{const p=JSON.parse(await f.text());
+  if(p.type==='prev'&&S.pack){S.pack.prev=S.pack.prev||{};Object.entries(p.vessels||{}).forEach(([v,l])=>{const ex=S.pack.prev[v]||[];const ids=new Set(l.map(x=>x.id));S.pack.prev[v]=[...ex.filter(x=>!ids.has(x.id)),...l]});await kvSet('pack',S.pack);closeModal();render();toast('Previous findings loaded');return}
+  if(!p.zones||!p.checklist||!p.ca)throw Error('not a VMI data pack');if(S.pack?.prev&&!Object.keys(p.prev||{}).length)p.prev=S.pack.prev;
   await kvSet('pack',p);S.pack=p;closeModal();render();toast('Data pack loaded: '+p.checklist.length+' + '+p.ca.length+' items')}catch(err){toast('Import failed: '+err.message)}};
 async function storInfo(){const el=$('#stor');if(!el)return;try{const e=await navigator.storage.estimate();const p=navigator.storage.persisted?await navigator.storage.persisted():false;
   el.innerHTML=`Used ${(e.usage/1048576).toFixed(0)} MB of ~${(e.quota/1073741824).toFixed(1)} GB · ${p?'protected':'not protected (Settings ⚙︎ › Protect storage)'}`}catch(x){el.textContent='n/a'}}
