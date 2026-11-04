@@ -98,7 +98,7 @@ pre.out{white-space:pre-wrap;background:#fff;border:1px solid var(--line);border
 <script>
 'use strict';
 /* ================= constants ================= */
-const APPV='1.1.0';
+const APPV='1.1.1';
 const VESSELS=[['SUTTON','Federal Sutton'],['SWIFT','Federal Swift'],['SPEY','Federal Spey'],['TYNE','Federal Tyne'],['TWEED','Federal Tweed']];
 const CL_ANS=['Yes','No','NA','NS'];
 const CA_ANS=['Poor','Unsatisfactory','Satisfactory','Good','Like New'];
@@ -435,7 +435,7 @@ function mediaPath(m){const I=S.insp;const fn=f=>'F'+String(f.no).padStart(3,'0'
   const leaf=m.clId?`Checklist ${m.clId}/`:m.caId?`Condition ${safe(caItems().find(c=>c.id===m.caId)?.comp)}/`:m.prevId?`Previous finding ${safe(prevItems().find(p=>p.id===m.prevId)?.ref||m.prevId)}/`:'General/';
   return`${top}/${mainFolder(m.zone)}/${sub}${leaf}${base}`}
 async function buildZip(){const I=S.insp;const onlyNew=$('#exNew').checked,vid=$('#exVid').checked;const out=$('#zipOut');out.innerHTML='<p class="muted">Building…</p>';
-  await saveNow();const root=`${safe(I.vessel)}/${inspFolderName(I)}/`;const E=[];
+  await saveNow();const root=`My vessels - ${safe(I.vessel.replace(/^Federal\s+/,''))}/${inspFolderName(I)}/`;const E=[];
   const zn=z=>mainOfZone(z).name+' › '+zoneById(z).name;const fn=f=>'F'+String(f.no).padStart(3,'0');
   E.push({name:root+'_data/inspection.json',data:JSON.stringify({...I,appv:APPV,folder:inspFolderName(I),previousFindings:prevItems(),zoneNames:Object.fromEntries(zones().map(z=>[z.id,mainOfZone(z.id).name+(mainOfZone(z.id).subs.length>1?' › '+z.name:'')])),mediaIndex:S.media.map(m=>({...m,file:mediaPath(m)}))},null,1)});
   E.push({name:root+'_data/Checklist.csv',data:csv([['Question Number','Question','Answer','Remarks','Group','Priority','Area(s)','Findings'],...clItems().map(i=>[i.id,i.q,I.cl[i.id]?.a||'',I.cl[i.id]?.rem||'',i.group,i.pri,i.zones.map(zn).join(' | '),I.findings.filter(f=>f.clId===i.id).map(fn).join(' ')])])});
