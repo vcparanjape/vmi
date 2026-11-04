@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="VM Inspect">
+<meta name="theme-color" content="#0b2545">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>VM Inspection</title>
+<style>
+:root{--navy:#0b2545;--blue:#13315c;--acc:#1d70b8;--bg:#f3f5f8;--card:#fff;--ink:#1b2430;--mut:#6b7686;--line:#dde3ea;
+--ok:#1e8e3e;--bad:#c62828;--warn:#e8a200;--na:#7a8594;--guid:#fff7d6;--guidb:#f0d77a}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text",Segoe UI,Roboto,sans-serif}
+header{position:sticky;top:0;z-index:20;background:var(--navy);color:#fff;padding:calc(env(safe-area-inset-top) + 8px) 12px 8px}
+header .row{display:flex;align-items:center;gap:8px}
+header h1{font-size:17px;margin:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header button{background:rgba(255,255,255,.14);color:#fff;border:0;border-radius:8px;padding:6px 10px;font-size:14px}
+.search{margin-top:8px;width:100%;border:0;border-radius:10px;padding:9px 12px;font-size:16px}
+main{padding:12px 12px calc(84px + env(safe-area-inset-bottom))}
+nav.tabs{position:fixed;bottom:0;left:0;right:0;z-index:20;background:#fff;border-top:1px solid var(--line);display:flex;padding-bottom:env(safe-area-inset-bottom)}
+nav.tabs button{flex:1;border:0;background:none;padding:8px 0 6px;font-size:11px;color:var(--mut)}
+nav.tabs button b{display:block;font-size:20px;line-height:24px}
+nav.tabs button.on{color:var(--acc);font-weight:600}
+.card{background:var(--card);border-radius:12px;padding:12px;margin-bottom:10px;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+.vgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.vcard{background:linear-gradient(135deg,var(--blue),var(--acc));color:#fff;border-radius:14px;padding:16px 12px;border:0;text-align:left;min-height:96px;font-size:16px;font-weight:600}
+.vcard small{display:block;font-weight:400;opacity:.85;margin-top:6px;font-size:12px}
+h2{font-size:16px;margin:14px 2px 8px}
+h3{font-size:14px;margin:10px 0 6px;color:var(--blue)}
+label{display:block;font-size:12px;color:var(--mut);margin:8px 0 3px}
+input,textarea,select{width:100%;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:8px;background:#fff;color:var(--ink)}
+textarea{min-height:64px;resize:vertical}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.btn{display:inline-block;border:0;border-radius:10px;padding:10px 14px;font-size:15px;background:var(--acc);color:#fff;font-weight:600}
+.btn.sec{background:#e7eef7;color:var(--acc)}.btn.red{background:var(--bad)}.btn.grn{background:var(--ok)}
+.btn.full{width:100%;margin-top:8px}
+.zlist .z{display:flex;align-items:center;gap:10px;padding:11px 12px;background:#fff;border-radius:10px;margin-bottom:6px;border:0;width:100%;text-align:left;font-size:15px}
+.z .nm{flex:1}.z .pc{font-size:12px;color:var(--mut)}
+.bar{height:5px;background:#e6eaf0;border-radius:3px;overflow:hidden;margin-top:4px}.bar i{display:block;height:100%;background:var(--ok)}
+.item{background:#fff;border-radius:12px;padding:11px;margin-bottom:10px;border-left:4px solid var(--line)}
+.item.done{border-left-color:var(--ok)}.item.flag{border-left-color:var(--bad)}.item.out{opacity:.55}
+.ih{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--mut)}
+.code{font-weight:700;color:var(--blue)}
+.pri{border-radius:5px;padding:1px 6px;font-size:11px;font-weight:700;color:#fff;background:var(--na)}
+.pri.P1{background:#d35400}.pri.PSC{background:var(--bad)}.pri.P2{background:#6c7a89}
+.tag{border-radius:5px;padding:1px 6px;font-size:11px;background:#eef2f7;color:var(--blue)}
+.q{font-weight:600;margin:5px 0 8px}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{flex:1;min-width:52px;border:1.5px solid var(--line);background:#fff;border-radius:9px;padding:8px 4px;font-size:13px;color:var(--ink)}
+.seg button.on[data-v="Yes"],.seg button.on[data-v="Good"],.seg button.on[data-v="Like New"]{background:var(--ok);border-color:var(--ok);color:#fff}
+.seg button.on[data-v="No"],.seg button.on[data-v="Poor"],.seg button.on[data-v="Unsatisfactory"]{background:var(--bad);border-color:var(--bad);color:#fff}
+.seg button.on[data-v="Satisfactory"]{background:var(--warn);border-color:var(--warn);color:#fff}
+.seg button.on[data-v="NA"],.seg button.on[data-v="NS"]{background:var(--na);border-color:var(--na);color:#fff}
+.seg.ca button{font-size:11.5px;padding:8px 2px}
+details.guid{margin:8px 0;background:var(--guid);border:1px solid var(--guidb);border-radius:9px;padding:6px 9px}
+details.guid summary{font-size:13px;font-weight:600;color:#7a5b00}
+details.guid div{white-space:pre-wrap;font-size:13px;margin-top:6px}
+.item textarea{margin-top:8px;min-height:44px;font-size:15px}
+.cap{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}
+.cap button{border:0;border-radius:9px;background:#eef2f7;color:var(--blue);padding:8px 2px;font-size:11.5px}
+.cap button b{display:block;font-size:19px}
+.cap button.fd{background:#fdecea;color:var(--bad)}
+.thumbs{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.th{width:64px;height:64px;border-radius:8px;background:#dfe5ec center/cover;position:relative;display:flex;align-items:center;justify-content:center;font-size:22px;border:0}
+.th.f{outline:2.5px solid var(--bad)}
+.chip{display:inline-block;background:#fdecea;color:var(--bad);border-radius:12px;padding:3px 9px;font-size:12px;margin:6px 6px 0 0;border:0}
+.muted{color:var(--mut);font-size:13px}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50;display:flex;align-items:flex-end}
+.sheet{background:var(--bg);width:100%;max-height:92vh;overflow:auto;border-radius:16px 16px 0 0;padding:14px 14px calc(18px + env(safe-area-inset-bottom))}
+.sheet .top{display:flex;align-items:center;gap:8px;margin-bottom:6px}.sheet .top h2{flex:1;margin:0}
+.rec{font-size:42px;text-align:center;margin:18px 0;font-variant-numeric:tabular-nums}
+.pill{display:inline-block;padding:2px 8px;border-radius:10px;font-size:12px;background:#e7eef7;color:var(--acc)}
+.daygrp{margin-top:6px}
+.prow{display:flex;align-items:center;gap:8px;background:#fff;border-radius:10px;padding:8px 10px;margin-bottom:6px}
+.prow .nm{flex:1;font-size:14px}.prow select{width:84px;padding:6px}
+pre.out{white-space:pre-wrap;background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px;font:13px/1.45 ui-monospace,Menlo,monospace}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(90px + env(safe-area-inset-bottom));background:#222;color:#fff;padding:9px 16px;border-radius:20px;z-index:60;font-size:14px}
+.filt{display:flex;gap:6px;margin:6px 0 10px}.filt button{flex:1;border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px;font-size:13px}.filt button.on{background:var(--blue);color:#fff;border-color:var(--blue)}
+.viewer img,.viewer video{width:100%;border-radius:10px;background:#000}
+</style>
+</head>
+<body>
+<header id="hdr"></header>
+<main id="app"></main>
+<nav class="tabs" id="tabs" hidden></nav>
+<input type="file" id="fPhoto" accept="image/*" capture="environment" hidden>
+<input type="file" id="fVideo" accept="video/*" capture="environment" hidden>
+<input type="file" id="fPack" accept=".json,application/json" hidden>
+<input type="file" id="fLib" accept="image/*,video/*" multiple hidden>
+<div id="modal"></div>
+<script>
+'use strict';
+/* ================= constants ================= */
+const APPV='1.0.0';
+const VESSELS=[['SUTTON','Federal Sutton'],['SWIFT','Federal Swift'],['SPEY','Federal Spey'],['TYNE','Federal Tyne'],['TWEED','Federal Tweed']];
+const CL_ANS=['Yes','No','NA','NS'];
+const CA_ANS=['Poor','Unsatisfactory','Satisfactory','Good','Like New'];
+const PREAMBLE=[
+['A','General Condition and Performance',['General Condition of the Vessel','Vessel Performance']],
+['B','Safety Management System',['Major Fire / Safety Hazards','Critical Safety Equipment status','Housekeeping','Permit System','Toolbox Meeting, Daily Work Planning, Risk Assessment','QHSE Meetings','I Listen Programme','Rest Hour Management','Effectiveness of Drills']],
+['C','Engineering Procedures',['Engineering Practices and Procedures','Bunkering Procedures','Skills and Proficiency Levels of Engineering Team Members']],
+['D','Navigation Procedures',['Navigation Procedures','Status of Bridge Equipment']],
+['E','Planned Maintenance System',['Stores and Spares','Maintenance Procedures','Use of PMS','Verification of PMS Maintenance','Verification of Vessels Defects']],
+['F','Environment Management',['Disposal of Machinery Space Water and Cargo Slops','ORB / Cargo Record Book Entries and Disposal Records (Machinery and Cargo)','Environmental Seals','Garbage Management','Ballast Management','Sewage Management','Air Pollution Prevention - NOx/Sox/EEXi/CII','Biofouling Management Plan','Compliance with New / Upcoming Regulations']],
+['G','Cyber Security Management',['Cyber Security Measures','Crew Awareness']],
+['H','MLC Procedures',['Living Conditions & Mental Wellness','Onboard Complaint Handling Procedures']],
+['I','Certification and Document Control',['Statutory and other Certificates','STCW Certificates','System for Document control']],
+['J','Training',['Training Needs Identified','Onboard Training Conducted']],
+['K','Drydocking / Repairs - Key Personnels Attending',['Ship Repairs Manager','Business Representative','Class Surveyor','Flag Surveyor (if applicable)','Others']],
+['L','Drydocking / Repairs - Details',['Milestones','Main Work Done (Deck)','Main Work Done (Engine)','Modifications / Other Jobs']],
+['M','Conclusion',['Recommendations','Important Notes']],
+['N',"Inspector's Qualifications",['Details']]];
+const PRE_LIST=[];PREAMBLE.forEach(([c,n,s])=>s.forEach((x,i)=>PRE_LIST.push({id:c+String(i+1).padStart(2,'0'),cat:c,catName:n,name:x})));
+const PSC=[['01','Certificates & Documentation'],['02','Structural condition'],['03','Water/Weathertight condition'],['04','Emergency systems'],['05','Radio communication'],['06','Cargo operations incl. equipment'],['07','Fire safety'],['08','Alarms'],['09','Working & living conditions'],['10','Safety of navigation'],['11','Life saving appliances'],['12','Dangerous goods'],['13','Propulsion & auxiliary machinery'],['14','Pollution prevention (MARPOL)'],['15','ISM'],['16','ISPS'],['18','MLC 2006'],['99','Other']];
+const DATE_KEYS=['Planned','In-Progress','Completed','Under Review','Follow Up','Closed'];
+const FOCUS_ZONE={id:'FOCUS',name:'QHSE Focus 2026 – FPP, TBT, Critical Equipment, I Listen',group:'General',kw:'fpp fatality tbt toolbox i listen critical equipment gloves loto gas detector'};
+const FOCUS_ITEMS=[
+{id:'QF-AA',q:'Fatality Prevention Program (FPP) – verify at least two FPP activities',pri:'Priority 1',group:'QHSE Focus',pre:'B01',zones:['FOCUS'],guid:'Crew understanding of intent, controls and expectations; embedded in daily operations, not paperwork; coach on the spot where gaps found; record observations, good practices and improvement areas.\nIf no FPP activity witnessed: structured crew interviews and record review (objectives, risks & controls, evidence of recent implementation).'},
+{id:'QF-BB',q:'Toolbox Meetings – witness at least two TBTs (one deck, one E/R)',pri:'Priority 1',group:'QHSE Focus',pre:'B05',zones:['FOCUS'],guid:'Location/appropriateness, crew participation, quality of hazard identification and controls, open communication and engagement. Coach as required.'},
+{id:'QF-CC',q:'Critical safety equipment – check any two categories',pri:'Priority 1',group:'QHSE Focus',pre:'B02',zones:['FOCUS'],guid:'Categories: gas detectors; remote draft gauging; fall prevention devices; HV insulation gloves; LOTO kits; Pro-cut / impact-resistant gloves (no cotton gloves).\nVerify condition; maintenance, calibration & certification; crew competency and correct use incl. limitations. Use demonstrations, interviews, record review.'},
+{id:'QF-DD',q:'I Listen safety feedback session (min 15 min, separate from QHSE meeting)',pri:'Priority 1',group:'QHSE Focus',pre:'B07',zones:['FOCUS'],guid:'Deck, engine and catering reps plus officers. Fill I Listen form; take a photo of the session; escalate items needing Khalid\'s attention. Follow up every suggestion – never give budget as the reason for not accepting one.\nTopics: PPE, H&S suggestions, good practice sharing, safety/MARPOL violations, other concerns; fleet major injuries, recent safety flash, TBT conduct, One-Minute Hazard ID Guide, Golden Rules card, Stop-work card.'}];
+const ESSENTIAL=['FOCUS','ECR','ME','BRIDGE','MAIN','FWD','POOP','BOAT','OFFICE','ACCOM','MARPOL','STEER','EMG','AE','ERAUX','PUR'];
+const LOW=['HULL','HOLDS','WORK','GEN'];
+
+/* ================= IndexedDB ================= */
+let DB;
+function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open('vmi',1);r.onupgradeneeded=()=>{const d=r.result;d.createObjectStore('kv');d.createObjectStore('insp',{keyPath:'id'});const m=d.createObjectStore('media',{keyPath:'id'});m.createIndex('insp','inspId')};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+function tx(s,mode,fn){return new Promise((res,rej)=>{const t=DB.transaction(s,mode);const st=t.objectStore(s);let out;Promise.resolve(fn(st)).then(v=>out=v);t.oncomplete=()=>res(out);t.onerror=()=>rej(t.error)})}
+const rq=r=>new Promise((res,rej)=>{r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+const kvGet=k=>tx('kv','readonly',s=>rq(s.get(k)));
+const kvSet=(k,v)=>tx('kv','readwrite',s=>{s.put(v,k)});
+const inspAll=()=>tx('insp','readonly',s=>rq(s.getAll()));
+const inspPut=o=>tx('insp','readwrite',s=>{s.put(o)});
+const mediaPut=o=>tx('media','readwrite',s=>{s.put(o)});
+const mediaGet=id=>tx('media','readonly',s=>rq(s.get(id)));
+const mediaDel=id=>tx('media','readwrite',s=>{s.delete(id)});
+const mediaByInsp=id=>tx('media','readonly',s=>rq(s.index('insp').getAll(id)));
+
+/* ================= state ================= */
+const S={pack:null,list:[],insp:null,view:'home',zone:null,q:'',filter:'all',showOut:false,media:[],urls:{},settings:{compress:true,openGuid:false}};
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const nowISO=()=>new Date().toISOString();
+const todayDMY=()=>{const d=new Date();return String(d.getDate()).padStart(2,'0')+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+d.getFullYear()};
+function toast(m){const t=document.createElement('div');t.className='toast';t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),1800)}
+let saveT;function save(){clearTimeout(saveT);saveT=setTimeout(()=>{S.insp.updated=nowISO();inspPut(S.insp)},300)}
+function saveNow(){clearTimeout(saveT);S.insp.updated=nowISO();return inspPut(S.insp)}
+
+/* ================= data helpers ================= */
+const zones=()=>S.pack?[...S.pack.zones,FOCUS_ZONE]:[];
+const zoneById=id=>zones().find(z=>z.id===id)||{id,name:id};
+const clItems=()=>S.pack?[...FOCUS_ITEMS,...S.pack.checklist]:[];
+const caItems=()=>S.pack?S.pack.ca:[];
+const priKey=p=>/PSC/.test(p)?'PSC':/1/.test(p)?'P1':'P2';
+function scopeLevel(){const d=+(S.insp.plan.days||3.5);return d>=3.5?'Full':d>=2?'Focused':'Critical'}
+function inScope(kind,it){const l=scopeLevel();if(l==='Full')return true;const p=priKey(it.pri);
+  if(kind==='cl')return p!=='P2';return l==='Focused'?p!=='P2':p==='PSC'}
+function zoneStats(zid){let n=0,d=0;clItems().forEach(i=>{if(i.zones.includes(zid)&&inScope('cl',i)){n++;if(S.insp.cl[i.id]?.a)d++}});
+  caItems().forEach(i=>{if(i.zones.includes(zid)&&inScope('ca',i)){n++;if(S.insp.ca[i.id]?.a)d++}});return{n,d}}
+function newInspection(vid,vname){const id=vid+'-'+new Date().toISOString().slice(0,10)+'-'+uid().slice(-4);
+  const dates={};DATE_KEYS.forEach(k=>dates[k]='');dates['Planned']=todayDMY();dates['In-Progress']=todayDMY();
+  return{id,vessel:vname,vesselId:vid,status:'In progress',created:nowISO(),updated:nowISO(),appv:APPV,
+   boarding:{port:'',embark:'',openStart:'',openEnd:'',closeStart:'',closeEnd:'',disembark:'',attendees:'Master, Chief Engineer, Chief Officer, 2nd Engineer',scope:'',tests:'',drills:'',crewBrief:true,obt:true,notes:''},
+   plan:{days:3.5,assign:{},notes:''},cl:{},ca:{},findings:[],preamble:{},exec:'',dates,lastExport:null,completedAt:null}}
+
+/* ================= rendering ================= */
+function header(title,opts={}){const h=$('#hdr');
+  h.innerHTML=`<div class="row">${opts.back?`<button data-act="back">‹ Back</button>`:''}<h1>${esc(title)}</h1>${opts.right||''}</div>`+
+  (opts.search?`<input class="search" id="q" type="search" placeholder="Search area, machinery, checklist…" value="${esc(S.q)}" autocomplete="off">`:'');
+  const q=$('#q');if(q)q.oninput=e=>{S.q=e.target.value;renderBody()}}
+function tabs(){const t=$('#tabs');if(!S.insp||S.view==='home'){t.hidden=true;return}t.hidden=false;
+  const T=[['boarding','⚓','Boarding'],['plan','🗓','Plan'],['areas','🧭','Areas'],['findings','⚠️','Findings'],['report','📝','Report'],['export','☁️','Sync']];
+  t.innerHTML=T.map(([v,i,l])=>`<button data-act="tab" data-v="${v}" class="${S.view===v||(v==='areas'&&S.view==='zone')?'on':''}"><b>${i}</b>${l}</button>`).join('')}
+function render(){tabs();const v=S.view;
+  if(v==='home'){header('VM Inspection',{right:`<button data-act="settings">⚙︎</button>`})}
+  else{const nf=S.insp.findings.length;header(S.insp.vessel+(S.view==='zone'?' · '+zoneById(S.zone).name.split(' – ')[0]:''),{back:S.view==='zone',search:['areas','zone'].includes(v),right:`<span class="pill">${nf} F</span><button data-act="home">⌂</button>`})}
+  renderBody()}
+function renderBody(){const a=$('#app');const y=window.scrollY;
+  const fn={home:vHome,boarding:vBoarding,plan:vPlan,areas:vAreas,zone:vZone,findings:vFindings,report:vReport,export:vExport}[S.view];
+  a.innerHTML=fn();if(S._keepScroll){window.scrollTo(0,y);S._keepScroll=false}loadThumbs()}
+
+function vHome(){let h='';
+  if(!S.pack)h+=`<div class="card"><b>Load the Jibe data pack first</b><p class="muted">One-time step. Pick <i>VMI_datapack.json</i> from Files › OneDrive › Claude Data › Vessel Claude Inspection.</p><button class="btn full" data-act="importPack">Import data pack</button></div>`;
+  const open=S.list.filter(i=>i.status!=='Completed');
+  if(open.length)h+=`<h2>Continue inspection</h2>`+open.map(i=>`<button class="z" style="display:flex;width:100%;border:0;background:#fff;border-radius:10px;padding:12px;margin-bottom:6px;text-align:left" data-act="openInsp" data-id="${i.id}"><span class="nm" style="flex:1"><b>${esc(i.vessel)}</b><br><span class="muted">Started ${i.created.slice(0,10)} · ${i.findings.length} findings</span></span>›</button>`).join('');
+  h+=`<h2>Start inspection – tap vessel on boarding</h2><div class="vgrid">`+VESSELS.map(([id,n])=>{const c=S.list.filter(i=>i.vesselId===id);const last=c.sort((a,b)=>b.created.localeCompare(a.created))[0];
+    return`<button class="vcard" data-act="newInsp" data-id="${id}" data-n="${n}">${n}<small>${last?'Last: '+last.created.slice(0,10)+' ('+last.status+')':'No inspections yet'}</small></button>`}).join('')+`</div>`;
+  const done=S.list.filter(i=>i.status==='Completed');
+  if(done.length)h+=`<h2>Completed</h2>`+done.map(i=>`<button class="z" style="display:flex;width:100%;border:0;background:#fff;border-radius:10px;padding:12px;margin-bottom:6px;text-align:left" data-act="openInsp" data-id="${i.id}"><span style="flex:1"><b>${esc(i.vessel)}</b><br><span class="muted">${i.created.slice(0,10)} → ${(i.completedAt||'').slice(0,10)} · ${i.findings.length} findings</span></span>›</button>`).join('');
+  h+=`<p class="muted" style="text-align:center;margin-top:20px">Data stays on this iPhone. App v${APPV}${S.pack?' · Data pack '+esc(S.pack.version):''}</p>`;return h}
+
+function fld(path,label,type='text',ph=''){const v=getPath(path)??'';
+  if(type==='area')return`<label>${label}</label><textarea data-bind="${path}" placeholder="${esc(ph)}">${esc(v)}</textarea>`;
+  return`<label>${label}</label><input type="${type}" data-bind="${path}" value="${esc(v)}" placeholder="${esc(ph)}">`}
+function getPath(p){return p.split('.').reduce((o,k)=>o?.[k],S.insp)}
+function setPath(p,v){const ks=p.split('.');let o=S.insp;ks.slice(0,-1).forEach(k=>{o[k]=o[k]??{};o=o[k]});o[ks.at(-1)]=v}
+
+function vBoarding(){return`<div class="card"><h3>Boarding</h3>${fld('boarding.port','Port / location')}
+${fld('boarding.embark','Embarked','datetime-local')}</div>
+<div class="card"><h3>Opening meeting</h3><div class="two"><div>${fld('boarding.openStart','From','datetime-local')}</div><div>${fld('boarding.openEnd','To','datetime-local')}</div></div>
+${fld('boarding.attendees','Attended by','text')}</div>
+<div class="card"><h3>Scope of inspection</h3>${fld('boarding.scope','Scope items (one per line)','area','Vessel Manager inspection as per Jibe checklist\nCondition assessment of hull, deck and machinery')}
+<label><input type="checkbox" style="width:auto" data-bindc="boarding.crewBrief" ${S.insp.boarding.crewBrief?'checked':''}> Crew briefing</label>
+<label><input type="checkbox" style="width:auto" data-bindc="boarding.obt" ${S.insp.boarding.obt?'checked':''}> On-board training (need-based)</label>
+${fld('boarding.tests','Tests of equipment, alarms and inactive functions','area','e.g. Emergency generator, emergency fire pump, ME/AE trips & alarms')}
+${fld('boarding.drills','Drills witnessed','area','e.g. Fire drill (E/R), abandon ship')}</div>
+<div class="card"><h3>Closing meeting</h3><div class="two"><div>${fld('boarding.closeStart','From','datetime-local')}</div><div>${fld('boarding.closeEnd','To','datetime-local')}</div></div>
+${fld('boarding.disembark','Disembarked','datetime-local')}</div>
+<div class="card">${fld('boarding.notes','Other notes','area')}</div>`}
+
+function vPlan(){const l=scopeLevel();const days=Math.ceil(+(S.insp.plan.days||3.5));
+  const opts=d=>['-',...Array.from({length:Math.max(days,1)},(_,i)=>String(i+1))].map(o=>`<option ${String(d)===o?'selected':''}>${o}</option>`).join('');
+  let h=`<div class="card"><h3>Days available on board</h3><input type="number" step="0.5" min="0.5" max="6" data-bind="plan.days" data-num="1" value="${esc(S.insp.plan.days)}">
+  <p class="muted">Scope: <b>${l}</b> — ${l==='Full'?'all checklist and condition items.':l==='Focused'?'PSC + Priority 1 checklist and condition items (Priority 2 hidden).':'PSC + Priority 1 checklist; PSC condition items only.'} Hidden items can still be shown in each area.</p>
+  ${fld('plan.notes','Plan agreed with Master / CE','area','e.g. Day 1 PM ER while ME stopped, Day 2 cargo ops – deck after 1400')}
+  <button class="btn full sec" data-act="autoplan">Auto-plan areas over ${days} day(s)</button></div><h2>Areas by day</h2>`;
+  const A=S.insp.plan.assign;
+  zones().forEach(z=>{const st=zoneStats(z.id);h+=`<div class="prow"><span class="nm">${esc(z.name)}<br><span class="muted">${st.d}/${st.n} done · ${z.group}</span></span><select data-plan="${z.id}">${opts(A[z.id]??'-')}</select></div>`});
+  return h}
+function autoplan(){const days=Math.ceil(+(S.insp.plan.days||3.5));const l=scopeLevel();const zs=zones().map(z=>z.id);
+  let order=[...ESSENTIAL,...LOW].filter(z=>zs.includes(z));if(l!=='Full')order=order.filter(z=>!LOW.includes(z)||(l==='Focused'&&z==='GEN'));
+  const w=order.map(z=>Math.max(zoneStats(z).n,4));const tot=w.reduce((a,b)=>a+b,0);const cap=tot/days;let d=1,acc=0;const A={};
+  zs.forEach(z=>A[z]='-');order.forEach((z,i)=>{if(acc>=cap*d&&d<days)d++;A[z]=String(d);acc+=w[i]});
+  // FOCUS spread: keep on day 1 (TBT / I Listen planning)
+  if(A.FOCUS!=='-')A.FOCUS='1';S.insp.plan.assign=A;save();renderBody();toast('Areas planned')}
+
+function vAreas(){if(S.q.trim())return vSearch();const A=S.insp.plan.assign;const groups={};
+  zones().forEach(z=>{const d=A[z.id]&&A[z.id]!=='-'?'Day '+A[z.id]:'Not planned';(groups[d]=groups[d]||[]).push(z)});
+  const keys=Object.keys(groups).sort((a,b)=>a==='Not planned'?1:b==='Not planned'?-1:a.localeCompare(b));
+  let tn=0,td=0;zones().forEach(z=>{const s=zoneStats(z.id);tn+=s.n;td+=s.d});
+  let h=`<div class="card"><b>Progress ${td}/${tn}</b> <span class="pill">${scopeLevel()} scope</span><div class="bar"><i style="width:${tn?td/tn*100:0}%"></i></div></div><div class="zlist">`;
+  keys.forEach(k=>{h+=`<h2>${k}</h2>`;groups[k].forEach(z=>{const s=zoneStats(z.id);h+=`<button class="z" data-act="zone" data-id="${z.id}"><span class="nm">${esc(z.name)}<div class="bar"><i style="width:${s.n?s.d/s.n*100:0}%"></i></div></span><span class="pc">${s.d}/${s.n}</span>›</button>`})});
+  return h+'</div>'}
+function itemMedia(k,id){return S.media.filter(m=>m[k]===id)}
+function mediaThumbs(list){return list.length?`<div class="thumbs">${list.map(m=>`<button class="th ${m.findingId?'f':''}" data-act="viewMedia" data-id="${m.id}" data-thumb="${m.kind==='photo'?m.id:''}">${m.kind==='video'?'🎥':m.kind==='voice'?'🎙':''}</button>`).join('')}</div>`:''}
+function findChips(k,id){return S.insp.findings.filter(f=>f[k]===id).map(f=>`<button class="chip" data-act="editFinding" data-id="${f.id}">⚠️ F${f.no} ${esc(f.title||'(untitled)')}</button>`).join('')}
+function capRow(ctx){const c=Object.entries(ctx).map(([k,v])=>`data-${k}="${esc(v)}"`).join(' ');
+  return`<div class="cap"><button data-act="cap" data-kind="photo" ${c}><b>📷</b>Photo</button><button data-act="cap" data-kind="video" ${c}><b>🎥</b>Video</button><button data-act="cap" data-kind="voice" ${c}><b>🎙</b>Voice</button><button class="fd" data-act="newFinding" ${c}><b>⚠️</b>Finding</button></div>`}
+function clCard(i,zid){const r=S.insp.cl[i.id]||{};const out=!inScope('cl',i);const hasF=S.insp.findings.some(f=>f.clId===i.id);
+  return`<div class="item ${r.a?'done':''} ${hasF||r.a==='No'?'flag':''} ${out?'out':''}" id="it-${i.id}">
+  <div class="ih"><span class="code">${i.id}</span><span class="pri ${priKey(i.pri)}">${priKey(i.pri)}</span><span class="tag">${esc(i.group)}</span>${zid?'':`<span class="tag">${esc(zoneById(i.zones[0]).name.split(' – ')[0].split(',')[0])}</span>`}</div>
+  <div class="q">${esc(i.q)}</div>
+  <div class="seg" data-k="cl" data-id="${i.id}">${CL_ANS.map(a=>`<button data-act="ans" data-v="${a}" class="${r.a===a?'on':''}">${a}</button>`).join('')}</div>
+  ${i.guid?`<details class="guid" ${S.settings.openGuid?'open':''}><summary>Jibe guidance${i.ranks?' · ask: '+esc(i.ranks.split(',').slice(0,3).join(',')+(i.ranks.split(',').length>3?'…':'')):''}</summary><div>${esc(i.guid)}</div></details>`:''}
+  <textarea data-rem="cl:${i.id}" placeholder="Remarks / positive comments (tap 🎤 on keyboard to dictate)">${esc(r.rem||'')}</textarea>
+  ${capRow({zone:zid||i.zones[0],cl:i.id})}${mediaThumbs(itemMedia('clId',i.id))}${findChips('clId',i.id)}</div>`}
+function caCard(i,zid){const r=S.insp.ca[i.id]||{};const out=!inScope('ca',i);const hasF=S.insp.findings.some(f=>f.caId===i.id);
+  return`<div class="item ${r.a?'done':''} ${hasF||['Poor','Unsatisfactory'].includes(r.a)?'flag':''} ${out?'out':''}" id="it-${i.id}">
+  <div class="ih"><span class="code">Condition</span><span class="pri ${priKey(i.pri)}">${priKey(i.pri)}</span><span class="tag">${esc(i.cat)}</span>${zid?'':`<span class="tag">${esc(zoneById(i.zones[0]).name.split(' – ')[0].split(',')[0])}</span>`}</div>
+  <div class="q">${esc(i.comp)}</div>
+  <div class="seg ca" data-k="ca" data-id="${i.id}">${CA_ANS.map(a=>`<button data-act="ans" data-v="${a}" class="${r.a===a?'on':''}">${a}</button>`).join('')}</div>
+  ${i.guid?`<details class="guid" ${S.settings.openGuid?'open':''}><summary>Jibe guidance</summary><div>${esc(i.guid)}</div></details>`:''}
+  <textarea data-rem="ca:${i.id}" placeholder="Remarks (tap 🎤 on keyboard to dictate)">${esc(r.rem||'')}</textarea>
+  ${capRow({zone:zid||i.zones[0],ca:i.id})}${mediaThumbs(itemMedia('caId',i.id))}${findChips('caId',i.id)}</div>`}
+function vZone(){if(S.q.trim())return vSearch();const z=zoneById(S.zone);const f=S.filter;
+  let cl=clItems().filter(i=>i.zones.includes(z.id)),ca=caItems().filter(i=>i.zones.includes(z.id));
+  const hidden=cl.filter(i=>!inScope('cl',i)).length+ca.filter(i=>!inScope('ca',i)).length;
+  if(!S.showOut){cl=cl.filter(i=>inScope('cl',i));ca=ca.filter(i=>inScope('ca',i))}
+  const gen=S.media.filter(m=>m.zone===z.id&&!m.clId&&!m.caId);
+  let h=`<div class="card"><b>${esc(z.name)}</b><div class="muted">${cl.length} checklist · ${ca.length} condition items${hidden?` · <a href="#" data-act="toggleOut">${S.showOut?'hide':'show'} ${hidden} out-of-scope</a>`:''}</div>
+  <h3>General photos / findings for this area</h3>${capRow({zone:z.id})}${mediaThumbs(gen)}${S.insp.findings.filter(x=>x.zone===z.id&&!x.clId&&!x.caId).map(x=>`<button class="chip" data-act="editFinding" data-id="${x.id}">⚠️ F${x.no} ${esc(x.title||'(untitled)')}</button>`).join('')}</div>
+  <div class="filt">${[['all','All'],['cl','Checklist'],['ca','Condition'],['open','Not done']].map(([k,l])=>`<button data-act="filt" data-v="${k}" class="${f===k?'on':''}">${l}</button>`).join('')}</div>`;
+  const nd=(k,i)=>!S.insp[k][i.id]?.a;
+  if(f!=='ca'){const L=cl.filter(i=>f!=='open'||nd('cl',i));if(L.length)h+=`<h2>Jibe checklist</h2>`+L.map(i=>clCard(i,z.id)).join('')}
+  if(f!=='cl'){const L=ca.filter(i=>f!=='open'||nd('ca',i));if(L.length)h+=`<h2>Condition assessment</h2>`+L.map(i=>caCard(i,z.id)).join('')}
+  return h}
+function vSearch(){const t=S.q.toLowerCase().trim().split(/\s+/);const m=s=>t.every(w=>s.toLowerCase().includes(w));
+  const Z=zones().filter(z=>m(z.name+' '+z.kw+' '+z.id));
+  const C=clItems().filter(i=>m(i.id+' '+i.q+' '+i.group+' '+(i.loc||'')+' '+i.guid)).slice(0,25);
+  const A=caItems().filter(i=>m(i.comp+' '+i.cat+' '+(i.kw||''))).slice(0,25);
+  let h='';if(Z.length)h+=`<h2>Areas</h2><div class="zlist">`+Z.map(z=>`<button class="z" data-act="zone" data-id="${z.id}"><span class="nm">${esc(z.name)}</span>›</button>`).join('')+'</div>';
+  if(A.length)h+=`<h2>Condition / machinery (${A.length})</h2>`+A.map(i=>caCard(i,null)).join('');
+  if(C.length)h+=`<h2>Checklist (${C.length})</h2>`+C.map(i=>clCard(i,null)).join('');
+  return h||`<p class="muted">No match for “${esc(S.q)}”.</p>`}
+
+function vFindings(){const F=[...S.insp.findings].sort((a,b)=>a.no-b.no);
+  let h=`<button class="btn full" data-act="newFinding">+ New finding</button><h2>${F.length} finding(s)</h2>`;
+  h+=F.map(f=>{const ms=S.media.filter(m=>m.findingId===f.id);const link=[f.clId,f.caId?caItems().find(c=>c.id===f.caId)?.comp:''].filter(Boolean).join(' · ');
+   return`<div class="item flag" data-act="editFinding" data-id="${f.id}"><div class="ih"><span class="code">F${f.no}</span><span class="tag">${esc(f.type)}</span>${f.pre?`<span class="tag">${f.pre}</span>`:''}${f.psc?`<span class="pri PSC">PSC ${f.psc}</span>`:''}${f.rs?'<span class="pri P1">RightShip</span>':''}</div>
+   <div class="q">${esc(f.title||'(untitled)')}</div><div class="muted">${esc(zoneById(f.zone).name)}${link?' · '+esc(link):''} · ${ms.length} media</div>${mediaThumbs(ms.slice(0,6))}</div>`}).join('');return h}
+
+function execText(){const b=S.insp.boarding;const tm=v=>v?v.slice(11,16).replace(':',''):'xxxx';const dt=v=>{if(!v)return'dd/mmm/yyyy';const d=new Date(v);return String(d.getDate()).padStart(2,'0')+'/'+d.toLocaleString('en-GB',{month:'short'})+'/'+d.getFullYear()};
+  const sc=(b.scope||'').split('\n').map(s=>s.trim()).filter(Boolean);const add=[];if(b.crewBrief)add.push('Crew briefing');if(b.obt)add.push('On-board training (need-based)');
+  add.push('Test of '+((b.tests||'').split('\n').map(s=>s.trim()).filter(Boolean).join(', ')||'---------')+', Alarms and Inactive functions');
+  add.push('Drills'+((b.drills||'').trim()?' ('+b.drills.split('\n').map(s=>s.trim()).filter(Boolean).join(', ')+')':''));
+  return`Executive Summary\nThe inspector embarked the vessel at ${tm(b.embark)} hrs. on ${dt(b.embark)}${b.port?' at '+b.port:''}. Opening meeting was conducted from ${tm(b.openStart)} hrs. to ${tm(b.openEnd)} hrs. on ${dt(b.openStart)}, which was attended by all senior officers. During this meeting, the scope & schedule of the inspection was explained.\n\nScope of Inspection\n${(sc.length?sc:['----------------------------']).map(s=>'- '+s).join('\n')}\n\nAdditionally, the inspection included the following:\n${add.map(s=>'- '+s).join('\n')}\n\nClosing meeting was conducted from ${tm(b.closeStart)} hrs. to ${tm(b.closeEnd)} hrs. on ${dt(b.closeStart)}, which was attended by all senior officers. The inspector disembarked from the vessel at ${tm(b.disembark)} hrs. on ${dt(b.disembark)}.`}
+function vReport(){const I=S.insp;let h=`<div class="card"><h3>Executive Summary <span class="muted">(${(I.exec||'').length}/10000)</span></h3>
+  <p class="muted">Built from Boarding tab. Final format to follow your chosen chat template.</p><button class="btn sec full" data-act="genExec">Fill from boarding data</button>
+  <textarea data-bind="exec" style="min-height:260px;margin-top:8px">${esc(I.exec)}</textarea></div><h2>Preamble</h2>`;
+  PREAMBLE.forEach(([c,n,subs])=>{h+=`<div class="card"><h3>${c} – ${esc(n)}</h3>`;subs.forEach((s,ix)=>{const id=c+String(ix+1).padStart(2,'0');const nf=I.findings.filter(f=>f.pre===id).length;
+    h+=`<label>${String(ix+1).padStart(2,'0')} – ${esc(s)}${nf?` · <a href="#" data-act="preIns" data-id="${id}">insert ${nf} finding(s)</a>`:''}</label><textarea data-bind="preamble.${id}">${esc(I.preamble[id]||'')}</textarea>`});h+='</div>'});
+  h+=`<div class="card"><h3>Dates</h3>${DATE_KEYS.map(k=>`<label>${k}</label><input data-bind="dates.${k}" value="${esc(I.dates[k]||'')}" placeholder="NA">`).join('')}</div>`;
+  h+=I.status==='Completed'?`<div class="card"><b>✅ Completed ${I.completedAt?.slice(0,16).replace('T',' ')}</b><button class="btn sec full" data-act="reopen">Reopen inspection</button></div>`
+   :`<button class="btn grn full" data-act="complete">✔︎ Complete inspection</button>`;return h}
+
+function vExport(){const I=S.insp;const ms=S.media;const nw=ms.filter(m=>!I.lastExport||m.ts>I.lastExport);
+  const sz=a=>(a.reduce((s,m)=>s+(m.size||0),0)/1048576).toFixed(1)+' MB';
+  return`<div class="card"><h3>Daily sync to OneDrive</h3><p class="muted">When on Wi-Fi: build package → Share → <b>Save to Files</b> → OneDrive › Claude Data › <b>Vessel Claude Inspection</b>. Then tell Claude “process my inspection upload”.</p>
+  <p>Media total: <b>${ms.length}</b> (${sz(ms)}) · new since last sync: <b>${nw.length}</b> (${sz(nw)})<br><span class="muted">Last sync: ${I.lastExport?I.lastExport.slice(0,16).replace('T',' '):'never'}</span></p>
+  <label><input type="checkbox" id="exNew" style="width:auto" checked> Only media new since last sync (data files always full)</label>
+  <label><input type="checkbox" id="exVid" style="width:auto" checked> Include videos</label>
+  <button class="btn full" data-act="buildZip">Build sync package</button><div id="zipOut"></div></div>
+  <div class="card"><h3>Storage</h3><div id="stor" class="muted">…</div></div>`}
+
+/* ================= modal: finding / voice / viewer / settings ================= */
+function modal(html){$('#modal').innerHTML=`<div class="modal" data-act="closeBg"><div class="sheet">${html}</div></div>`}
+function closeModal(){$('#modal').innerHTML='';stopRec(true)}
+function nextNo(){return S.insp.findings.reduce((m,f)=>Math.max(m,f.no),0)+1}
+function createFinding(ctx){const cl=ctx.cl?clItems().find(i=>i.id===ctx.cl):null;
+  const f={id:'F'+uid(),no:nextNo(),title:'',text:'',type:'Finding',zone:ctx.zone||(cl?cl.zones[0]:'GEN'),clId:ctx.cl||'',caId:ctx.ca||'',pre:cl?.pre||'',psc:'',rs:false,ts:nowISO(),fresh:true};
+  S.insp.findings.push(f);save();return f}
+function findingSheet(f){const zOpts=zones().map(z=>`<option value="${z.id}" ${f.zone===z.id?'selected':''}>${esc(z.name)}</option>`).join('');
+  const preO=`<option value="">—</option>`+PRE_LIST.map(p=>`<option value="${p.id}" ${f.pre===p.id?'selected':''}>${p.cat} ${p.id.slice(1)} – ${esc(p.name)}</option>`).join('');
+  const pscO=`<option value="">—</option>`+PSC.map(([c,n])=>`<option value="${c}" ${f.psc===c?'selected':''}>${c} – ${n}</option>`).join('');
+  const zcl=clItems().filter(i=>i.zones.includes(f.zone)||i.id===f.clId);const zca=caItems().filter(i=>i.zones.includes(f.zone)||i.id===f.caId);
+  const ms=S.media.filter(m=>m.findingId===f.id);
+  modal(`<div class="top"><h2>Finding F${f.no}</h2><button class="btn sec" data-act="closeFinding" data-id="${f.id}">Done</button></div>
+  ${capRow({finding:f.id,zone:f.zone,cl:f.clId,ca:f.caId}).replace(/<button class="fd"[^]*?<\/button>/,'<button data-act="libPick" data-finding="'+f.id+'"><b>🖼</b>Library</button>')}
+  ${mediaThumbs(ms)}
+  <label>Title</label><input data-fb="title" value="${esc(f.title)}" placeholder="e.g. Steering gear room mushroom vent – closing device seized">
+  <label>Description (tap 🎤 on keyboard to dictate)</label><textarea data-fb="text" style="min-height:110px">${esc(f.text)}</textarea>
+  <div class="two"><div><label>Type</label><select data-fb="type">${['Finding','Observation','Non-conformity','Positive'].map(t=>`<option ${f.type===t?'selected':''}>${t}</option>`).join('')}</select></div>
+  <div><label>PSC deficiency area</label><select data-fb="psc">${pscO}</select></div></div>
+  <label><input type="checkbox" style="width:auto" data-fbc="rs" ${f.rs?'checked':''}> RightShip relevant</label>
+  <label>Area</label><select data-fb="zone">${zOpts}</select>
+  <label>Linked checklist item</label><select data-fb="clId"><option value="">—</option>${zcl.map(i=>`<option value="${i.id}" ${f.clId===i.id?'selected':''}>${i.id} ${esc(i.q.slice(0,60))}</option>`).join('')}</select>
+  <label>Linked condition item</label><select data-fb="caId"><option value="">—</option>${zca.map(i=>`<option value="${i.id}" ${f.caId===i.id?'selected':''}>${esc(i.comp)}</option>`).join('')}</select>
+  <label>Preamble section</label><select data-fb="pre">${preO}</select>
+  <button class="btn red full" style="margin-top:16px" data-act="delFinding" data-id="${f.id}">Delete finding</button>`);S.curFinding=f}
+let REC=null;
+async function voiceSheet(ctx){modal(`<div class="top"><h2>Voice note</h2><button class="btn sec" data-act="close">Cancel</button></div>
+  <div class="rec" id="recT">00:00</div><p class="muted" id="recMsg" style="text-align:center">Recording is stored on the phone and tagged to this item.</p>
+  <button class="btn red full" id="recBtn" data-act="recToggle">● Start recording</button>
+  <label>Live transcript (if available offline) / typed notes</label><textarea id="recTxt" placeholder="Or tap 🎤 on the keyboard and speak"></textarea>
+  <button class="btn full" data-act="recSave">Save</button>`);REC={ctx,chunks:[],blob:null}}
+async function recToggle(){if(REC.mr&&REC.mr.state==='recording'){REC.mr.stop();return}
+  try{const st=await navigator.mediaDevices.getUserMedia({audio:true});REC.stream=st;
+   const mime=['audio/mp4','audio/webm','audio/aac'].find(t=>window.MediaRecorder&&MediaRecorder.isTypeSupported(t))||'';
+   const mr=new MediaRecorder(st,mime?{mimeType:mime}:{});REC.mr=mr;REC.chunks=[];mr.ondataavailable=e=>e.data.size&&REC.chunks.push(e.data);
+   mr.onstop=()=>{REC.blob=new Blob(REC.chunks,{type:mr.mimeType||'audio/mp4'});st.getTracks().forEach(t=>t.stop());clearInterval(REC.tm);$('#recBtn').textContent='● Record again';$('#recMsg').textContent='Recorded '+$('#recT').textContent+' – tap Save';try{REC.sr&&REC.sr.stop()}catch(e){}};
+   mr.start(1000);const t0=Date.now();REC.tm=setInterval(()=>{const s=Math.floor((Date.now()-t0)/1000);$('#recT').textContent=String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')},500);
+   $('#recBtn').textContent='■ Stop';
+   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(SR){try{const sr=new SR();sr.continuous=true;sr.interimResults=true;sr.lang='en-GB';let base=$('#recTxt').value;
+     sr.onresult=e=>{let s='';for(const r of e.results)s+=r[0].transcript;$('#recTxt').value=(base?base+' ':'')+s};sr.onerror=()=>{};sr.start();REC.sr=sr}catch(e){}}
+  }catch(e){$('#recMsg').textContent='Microphone not available: '+e.message+'. Open the app from the Home Screen icon and allow the microphone.'}}
+function stopRec(discard){if(!REC)return;try{REC.mr&&REC.mr.state==='recording'&&REC.mr.stop()}catch(e){}try{REC.sr&&REC.sr.stop()}catch(e){}clearInterval(REC.tm);if(discard)REC=null}
+async function recSave(){if(!REC)return;const txt=$('#recTxt').value.trim();if(REC.mr&&REC.mr.state==='recording'){REC.mr.stop();await new Promise(r=>setTimeout(r,400))}
+  if(!REC.blob&&!txt){toast('Nothing recorded');return}const ctx=REC.ctx;
+  if(REC.blob)await addMedia(REC.blob,'voice',ctx,txt);
+  if(txt&&ctx.finding){const f=S.insp.findings.find(x=>x.id===ctx.finding);if(f){f.text=(f.text?f.text+'\n':'')+txt;save()}}
+  else if(txt&&(ctx.cl||ctx.ca)){const k=ctx.cl?'cl':'ca',id=ctx.cl||ctx.ca;const r=S.insp[k][id]=S.insp[k][id]||{};r.rem=(r.rem?r.rem+'\n':'')+txt;save()}
+  REC=null;$('#modal').innerHTML='';if(ctx.finding){findingSheet(S.insp.findings.find(x=>x.id===ctx.finding))}S._keepScroll=true;renderBody();toast('Voice note saved')}
+async function viewMedia(id){const m=await mediaGet(id);if(!m)return;const u=URL.createObjectURL(m.blob);
+  const el=m.kind==='photo'?`<img src="${u}">`:m.kind==='video'?`<video src="${u}" controls playsinline></video>`:`<audio src="${u}" controls style="width:100%"></audio>`;
+  const f=m.findingId?S.insp.findings.find(x=>x.id===m.findingId):null;
+  modal(`<div class="top"><h2>${m.kind[0].toUpperCase()+m.kind.slice(1)}</h2><button class="btn sec" data-act="close">Close</button></div><div class="viewer">${el}</div>
+  <p class="muted">${esc(zoneById(m.zone).name)}${m.clId?' · '+m.clId:''}${m.caId?' · '+esc(caItems().find(c=>c.id===m.caId)?.comp||''):''}${f?' · Finding F'+f.no:''}<br>${m.ts.slice(0,16).replace('T',' ')}</p>
+  <label>Caption</label><input data-mcap="${m.id}" value="${esc(m.caption||'')}">
+  <button class="btn red full" style="margin-top:14px" data-act="delMedia" data-id="${m.id}">Delete</button>`)}
+function settingsSheet(){modal(`<div class="top"><h2>Settings</h2><button class="btn sec" data-act="close">Close</button></div>
+  <label><input type="checkbox" style="width:auto" data-set="compress" ${S.settings.compress?'checked':''}> Compress photos to 2048 px (saves space, ~0.5 MB each)</label>
+  <label><input type="checkbox" style="width:auto" data-set="openGuid" ${S.settings.openGuid?'checked':''}> Always expand Jibe guidance</label>
+  <button class="btn sec full" data-act="importPack">Import / update data pack</button>
+  <button class="btn sec full" data-act="persist">Protect storage from iOS clean-up</button>
+  <p class="muted">Data pack: ${S.pack?esc(S.pack.version)+' · '+S.pack.checklist.length+' checklist · '+S.pack.ca.length+' condition items':'not loaded'}</p>`)}
+
+/* ================= media ================= */
+async function compressImg(file){if(!S.settings.compress)return file;try{const bmp=await createImageBitmap(file);const M=2048;const k=Math.min(1,M/Math.max(bmp.width,bmp.height));
+  const c=document.createElement('canvas');c.width=Math.round(bmp.width*k);c.height=Math.round(bmp.height*k);c.getContext('2d').drawImage(bmp,0,0,c.width,c.height);
+  return await new Promise(r=>c.toBlob(b=>r(b||file),'image/jpeg',.82))}catch(e){return file}}
+async function addMedia(blob,kind,ctx,caption=''){const m={id:'M'+uid(),inspId:S.insp.id,kind,mime:blob.type||'',size:blob.size,blob,zone:ctx.zone||'GEN',clId:ctx.cl||'',caId:ctx.ca||'',findingId:ctx.finding||'',caption,ts:nowISO()};
+  await mediaPut(m);const {blob:_,...meta}=m;S.media.push(meta);return m}
+let PEND=null;
+async function onFile(e,kind){const files=[...e.target.files];e.target.value='';if(!files.length||!PEND)return;const ctx=PEND;PEND=null;
+  for(const f of files){const k=kind||(f.type.startsWith('video')?'video':'photo');const b=k==='photo'?await compressImg(f):f;await addMedia(b,k,ctx)}
+  toast(files.length>1?files.length+' items saved':(kind==='video'?'Video saved':'Photo saved'));
+  if(ctx.finding)findingSheet(S.insp.findings.find(x=>x.id===ctx.finding));S._keepScroll=true;renderBody()}
+async function loadThumbs(){for(const el of document.querySelectorAll('[data-thumb]')){const id=el.dataset.thumb;if(!id)continue;
+  if(!S.urls[id]){const m=await mediaGet(id);if(!m)continue;S.urls[id]=URL.createObjectURL(m.blob)}el.style.backgroundImage=`url(${S.urls[id]})`}}
+
+/* ================= ZIP (store) ================= */
+const CRC=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+function crc32(u8){let c=0xFFFFFFFF;for(let i=0;i<u8.length;i++)c=CRC[(c^u8[i])&255]^(c>>>8);return(c^0xFFFFFFFF)>>>0}
+async function makeZip(entries,prog){const enc=new TextEncoder();const parts=[],cen=[];let off=0;const d=new Date();
+  const dt=((d.getHours()<<11)|(d.getMinutes()<<5)|(d.getSeconds()>>1))&0xFFFF,dd=(((d.getFullYear()-1980)<<9)|((d.getMonth()+1)<<5)|d.getDate())&0xFFFF;
+  for(let i=0;i<entries.length;i++){const e=entries[i];prog&&prog(i,entries.length);
+    const data=typeof e.data==='string'?enc.encode(e.data):new Uint8Array(await e.data.arrayBuffer());const name=enc.encode(e.name);const crc=crc32(data);
+    const h=new DataView(new ArrayBuffer(30));h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint16(6,0x0800,true);h.setUint16(8,0,true);h.setUint16(10,dt,true);h.setUint16(12,dd,true);
+    h.setUint32(14,crc,true);h.setUint32(18,data.length,true);h.setUint32(22,data.length,true);h.setUint16(26,name.length,true);h.setUint16(28,0,true);
+    parts.push(h.buffer,name,data);
+    const c=new DataView(new ArrayBuffer(46));c.setUint32(0,0x02014b50,true);c.setUint16(4,20,true);c.setUint16(6,20,true);c.setUint16(8,0x0800,true);c.setUint16(10,0,true);c.setUint16(12,dt,true);c.setUint16(14,dd,true);
+    c.setUint32(16,crc,true);c.setUint32(20,data.length,true);c.setUint32(24,data.length,true);c.setUint16(28,name.length,true);c.setUint32(42,off,true);cen.push(c.buffer,name);
+    off+=30+name.length+data.length}
+  const cs=cen.reduce((s,b)=>s+(b.byteLength??b.length),0);const z=new DataView(new ArrayBuffer(22));z.setUint32(0,0x06054b50,true);z.setUint16(8,entries.length,true);z.setUint16(10,entries.length,true);z.setUint32(12,cs,true);z.setUint32(16,off,true);
+  return new Blob([...parts,...cen,z.buffer],{type:'application/zip'})}
+const safe=s=>String(s||'').replace(/[\\/:*?"<>|]+/g,'-').replace(/\s+/g,' ').trim().slice(0,70);
+const csv=rows=>rows.map(r=>r.map(v=>{v=String(v??'');return/[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}).join(',')).join('\r\n');
+function extOf(m){const t=m.mime||'';return t.includes('jpeg')?'jpg':t.includes('png')?'png':t.includes('heic')?'heic':t.includes('quicktime')?'mov':t.includes('mp4')?(m.kind==='voice'?'m4a':'mp4'):t.includes('webm')?'webm':t.includes('aac')?'aac':m.kind==='photo'?'jpg':'bin'}
+function zoneFolder(zid){const zs=zones();const i=zs.findIndex(z=>z.id===zid);return String(i+1).padStart(2,'0')+' '+safe(zoneById(zid).name)}
+async function buildZip(){const I=S.insp;const onlyNew=$('#exNew').checked,vid=$('#exVid').checked;const out=$('#zipOut');out.innerHTML='<p class="muted">Building…</p>';
+  await saveNow();const root=`${safe(I.vessel)}/${I.created.slice(0,10)} VMI ${I.id.slice(-4)}/`;const E=[];
+  const zn=z=>zoneById(z).name;const fn=f=>'F'+String(f.no).padStart(3,'0');
+  E.push({name:root+'data/inspection.json',data:JSON.stringify({...I,mediaIndex:S.media.map(m=>({...m}))},null,1)});
+  E.push({name:root+'data/Checklist.csv',data:csv([['Question Number','Question','Answer','Remarks','Group','Priority','Area(s)','Findings'],...clItems().map(i=>[i.id,i.q,I.cl[i.id]?.a||'',I.cl[i.id]?.rem||'',i.group,i.pri,i.zones.map(zn).join(' | '),I.findings.filter(f=>f.clId===i.id).map(fn).join(' ')])])});
+  E.push({name:root+'data/Condition_Assessment.csv',data:csv([['Operational Category','Component','Answer','Remarks','Priority','Area(s)','Findings'],...caItems().map(i=>[i.cat,i.comp,I.ca[i.id]?.a||'',I.ca[i.id]?.rem||'',i.pri,i.zones.map(zn).join(' | '),I.findings.filter(f=>f.caId===i.id).map(fn).join(' ')])])});
+  E.push({name:root+'data/Findings.csv',data:csv([['No','Type','Title','Description','Area','Checklist','Condition item','Preamble','PSC area','RightShip','Media','Time'],...[...I.findings].sort((a,b)=>a.no-b.no).map(f=>[fn(f),f.type,f.title,f.text,zn(f.zone),f.clId,caItems().find(c=>c.id===f.caId)?.comp||'',f.pre,f.psc,f.rs?'Yes':'',S.media.filter(m=>m.findingId===f.id).length,f.ts])])});
+  E.push({name:root+'report/Executive_Summary.txt',data:I.exec||execText()});
+  E.push({name:root+'report/Preamble.txt',data:PREAMBLE.map(([c,n,s])=>c+' - '+n+'\n'+s.map((x,i)=>{const id=c+String(i+1).padStart(2,'0');return String(i+1).padStart(2,'0')+' - '+x+'\n'+(I.preamble[id]||'')}).join('\n')).join('\n\n')+'\n\nDates\n'+DATE_KEYS.map(k=>k+': '+(I.dates[k]||'NA')).join('\n')});
+  let ms=S.media.filter(m=>(!onlyNew||!I.lastExport||m.ts>I.lastExport)&&(vid||m.kind!=='video'));
+  for(const m of ms){const full=await mediaGet(m.id);if(!full)continue;const base=m.ts.slice(0,19).replace(/[-:]/g,'').replace('T','_')+'_'+m.kind+'.'+extOf(m);let path;
+    if(m.findingId){const f=I.findings.find(x=>x.id===m.findingId);path=`Findings/${f?fn(f)+' '+safe(f.title||'untitled'):'orphan'}/`}
+    else{path=`Areas/${zoneFolder(m.zone)}/`+(m.clId?`Checklist ${m.clId}/`:m.caId?`Condition ${safe(caItems().find(c=>c.id===m.caId)?.comp)}/`:'General/')}
+    E.push({name:root+path+base,data:full.blob})}
+  I.findings.forEach(f=>E.push({name:`${root}Findings/${fn(f)} ${safe(f.title||'untitled')}/finding.txt`,data:`${fn(f)} [${f.type}] ${f.title}\nArea: ${zn(f.zone)}\nChecklist: ${f.clId}\nCondition: ${caItems().find(c=>c.id===f.caId)?.comp||''}\nPreamble: ${f.pre}\nPSC: ${f.psc}\nRightShip: ${f.rs?'Yes':'No'}\n\n${f.text}`}));
+  const zip=await makeZip(E,(i,n)=>{out.innerHTML=`<p class="muted">Packing ${i+1}/${n}…</p>`});
+  const stamp=new Date().toISOString().slice(0,16).replace(/[-:T]/g,'');const name=`VMI_${I.vesselId}_${stamp}.zip`;S.zip=new File([zip],name,{type:'application/zip'});S.zipStamp=nowISO();
+  const url=URL.createObjectURL(zip);out.innerHTML=`<p><b>${name}</b> · ${(zip.size/1048576).toFixed(1)} MB · ${ms.length} media</p><button class="btn grn full" data-act="shareZip">Share → Save to Files (OneDrive)</button><a class="btn sec full" style="text-align:center" href="${url}" download="${name}">Download instead</a><button class="btn sec full" data-act="markSynced">Mark as synced</button>`}
+async function shareZip(){try{if(navigator.canShare&&navigator.canShare({files:[S.zip]})){await navigator.share({files:[S.zip],title:S.zip.name});markSynced()}else toast('Use Download instead')}catch(e){if(e.name!=='AbortError')toast(e.message)}}
+function markSynced(){S.insp.lastExport=S.zipStamp||nowISO();save();toast('Marked as synced');setTimeout(renderBody,300)}
+
+/* ================= events ================= */
+document.addEventListener('click',async e=>{const t=e.target.closest('[data-act]');if(!t)return;const a=t.dataset.act,d=t.dataset;
+  if(a==='closeBg'){if(e.target===t){if(S.curFinding){closeFinding(S.curFinding.id)}else closeModal()}return}
+  if(t.tagName==='A')e.preventDefault();
+  switch(a){
+  case'back':S.view='areas';S.q='';render();window.scrollTo(0,0);break;
+  case'tab':S.view=d.v;S.q='';render();window.scrollTo(0,0);if(d.v==='export')storInfo();break;
+  case'settings':settingsSheet();break;
+  case'importPack':$('#fPack').click();break;
+  case'persist':if(navigator.storage?.persist){const ok=await navigator.storage.persist();toast(ok?'Storage protected':'iOS declined – add to Home Screen first')}break;
+  case'newInsp':if(!S.pack){toast('Import data pack first');return}{const ex=S.list.find(i=>i.vesselId===d.id&&i.status!=='Completed');
+    if(ex){S.insp=ex}else{S.insp=newInspection(d.id,d.n);S.list.push(S.insp);await saveNow()}S.media=(await mediaByInsp(S.insp.id)).map(({blob,...m})=>m);S.view='boarding';render();window.scrollTo(0,0)}break;
+  case'openInsp':S.insp=S.list.find(i=>i.id===d.id);S.media=(await mediaByInsp(S.insp.id)).map(({blob,...m})=>m);S.view='areas';render();break;
+  case'home':S.view='home';S.insp=null;render();break;
+  case'autoplan':autoplan();break;
+  case'zone':S.zone=d.id;S.view='zone';S.q='';S.filter='all';S.showOut=false;render();window.scrollTo(0,0);break;
+  case'filt':S.filter=d.v;renderBody();break;
+  case'toggleOut':S.showOut=!S.showOut;renderBody();break;
+  case'ans':{const seg=t.parentElement;const k=seg.dataset.k,id=seg.dataset.id;const r=S.insp[k][id]=S.insp[k][id]||{};r.a=r.a===d.v?'':d.v;r.ts=nowISO();save();
+    seg.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.v===r.a));const card=seg.closest('.item');card.classList.toggle('done',!!r.a);
+    if(['No','Poor','Unsatisfactory'].includes(r.a)){card.classList.add('flag');toast('Tap ⚠️ Finding to record it')}break}
+  case'cap':{const ctx={zone:d.zone||'',cl:d.cl||'',ca:d.ca||'',finding:d.finding||''};if(d.kind==='voice'){voiceSheet(ctx);break}PEND=ctx;$(d.kind==='video'?'#fVideo':'#fPhoto').click();break}
+  case'libPick':PEND={finding:d.finding,zone:S.curFinding.zone,cl:S.curFinding.clId,ca:S.curFinding.caId};$('#fLib').click();break;
+  case'newFinding':{const f=createFinding({zone:d.zone||(S.view==='zone'?S.zone:'GEN'),cl:d.cl||'',ca:d.ca||''});findingSheet(f);break}
+  case'editFinding':findingSheet(S.insp.findings.find(f=>f.id===d.id));break;
+  case'closeFinding':closeFinding(d.id);break;
+  case'delFinding':{const ms=S.media.filter(m=>m.findingId===d.id);if(!t.dataset.sure){t.dataset.sure=1;t.textContent=`Tap again to delete finding${ms.length?' + '+ms.length+' media':''}`;break}
+    for(const m of ms)await mediaDel(m.id);S.media=S.media.filter(m=>m.findingId!==d.id);S.insp.findings=S.insp.findings.filter(f=>f.id!==d.id);S.curFinding=null;save();closeModal();S._keepScroll=true;render();break}
+  case'viewMedia':viewMedia(d.id);break;
+  case'delMedia':if(!t.dataset.sure){t.dataset.sure=1;t.textContent='Tap again to delete';break}await mediaDel(d.id);S.media=S.media.filter(m=>m.id!==d.id);closeModal();if(S.curFinding)findingSheet(S.curFinding);S._keepScroll=true;renderBody();break;
+  case'close':closeModal();if(S.curFinding)findingSheet(S.curFinding);break;
+  case'recToggle':recToggle();break;case'recSave':recSave();break;
+  case'genExec':S.insp.exec=execText();save();S._keepScroll=true;renderBody();break;
+  case'preIns':{const L=S.insp.findings.filter(f=>f.pre===d.id).map(f=>`- ${f.title}${f.text?': '+f.text.replace(/\n/g,' '):''}`).join('\n');S.insp.preamble[d.id]=(S.insp.preamble[d.id]?S.insp.preamble[d.id]+'\n':'')+L;save();S._keepScroll=true;renderBody();break}
+  case'complete':if(!t.dataset.sure){t.dataset.sure=1;t.textContent='Tap again to confirm completion';break}S.insp.status='Completed';S.insp.completedAt=nowISO();S.insp.dates['Completed']=todayDMY();if(!S.insp.exec)S.insp.exec=execText();await saveNow();S.view='export';render();toast('Inspection completed – sync when online');storInfo();break;
+  case'reopen':S.insp.status='In progress';S.insp.completedAt=null;save();renderBody();break;
+  case'buildZip':buildZip();break;case'shareZip':shareZip();break;case'markSynced':markSynced();break;
+  }});
+function closeFinding(id){const f=S.insp.findings.find(x=>x.id===id);if(f){delete f.fresh;if(!f.title&&!f.text&&!S.media.some(m=>m.findingId===id)){S.insp.findings=S.insp.findings.filter(x=>x.id!==id)}}
+  save();S.curFinding=null;closeModal();S._keepScroll=true;render()}
+document.addEventListener('input',e=>{const t=e.target;
+  if(t.dataset.bind){let v=t.value;if(t.dataset.num)v=+v||'';setPath(t.dataset.bind,v);save();if(t.dataset.bind==='plan.days'){clearTimeout(S._pd);S._pd=setTimeout(()=>{S._keepScroll=true;renderBody()},700)}}
+  if(t.dataset.rem){const[k,id]=t.dataset.rem.split(':');const r=S.insp[k][id]=S.insp[k][id]||{};r.rem=t.value;save()}
+  if(t.dataset.fb&&S.curFinding){S.curFinding[t.dataset.fb]=t.value;save()}
+  if(t.dataset.mcap){const id=t.dataset.mcap;mediaGet(id).then(m=>{m.caption=t.value;mediaPut(m)});const mm=S.media.find(x=>x.id===id);if(mm)mm.caption=t.value}});
+document.addEventListener('change',e=>{const t=e.target;
+  if(t.dataset.bindc){setPath(t.dataset.bindc,t.checked);save()}
+  if(t.dataset.fbc&&S.curFinding){S.curFinding[t.dataset.fbc]=t.checked;save()}
+  if(t.dataset.fb&&S.curFinding){S.curFinding[t.dataset.fb]=t.value;save();if(t.dataset.fb==='zone'){S.curFinding.clId=S.curFinding.clId;findingSheet(S.curFinding)}}
+  if(t.dataset.plan){S.insp.plan.assign[t.dataset.plan]=t.value;save()}
+  if(t.dataset.set){S.settings[t.dataset.set]=t.checked;kvSet('settings',S.settings);S._keepScroll=true;renderBody()}});
+$('#fPhoto').onchange=e=>onFile(e,'photo');$('#fVideo').onchange=e=>onFile(e,'video');$('#fLib').onchange=e=>onFile(e,null);
+$('#fPack').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;try{const p=JSON.parse(await f.text());if(!p.zones||!p.checklist||!p.ca)throw Error('not a VMI data pack');
+  await kvSet('pack',p);S.pack=p;closeModal();render();toast('Data pack loaded: '+p.checklist.length+' + '+p.ca.length+' items')}catch(err){toast('Import failed: '+err.message)}};
+async function storInfo(){const el=$('#stor');if(!el)return;try{const e=await navigator.storage.estimate();const p=navigator.storage.persisted?await navigator.storage.persisted():false;
+  el.innerHTML=`Used ${(e.usage/1048576).toFixed(0)} MB of ~${(e.quota/1073741824).toFixed(1)} GB · ${p?'protected':'not protected (Settings ⚙︎ › Protect storage)'}`}catch(x){el.textContent='n/a'}}
+window.addEventListener('popstate',()=>{});
+
+/* ================= boot ================= */
+(async()=>{try{DB=await openDB();S.pack=await kvGet('pack')||window.VMI_EMBEDDED_PACK||null;if(window.VMI_EMBEDDED_PACK&&!(await kvGet('pack')))await kvSet('pack',S.pack);
+  S.settings=Object.assign(S.settings,await kvGet('settings')||{});S.list=await inspAll();}catch(e){$('#app').innerHTML='<div class="card">Storage unavailable: '+esc(e.message)+'</div>';return}
+  render();if('serviceWorker'in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
+  if(navigator.storage?.persist)navigator.storage.persist().catch(()=>{})})();
+</script>
+</body>
+</html>
