@@ -98,7 +98,7 @@ pre.out{white-space:pre-wrap;background:#fff;border:1px solid var(--line);border
 <script>
 'use strict';
 /* ================= constants ================= */
-const APPV='1.1.1';
+const APPV='1.2.0';
 const VESSELS=[['SUTTON','Federal Sutton'],['SWIFT','Federal Swift'],['SPEY','Federal Spey'],['TYNE','Federal Tyne'],['TWEED','Federal Tweed']];
 const CL_ANS=['Yes','No','NA','NS'];
 const CA_ANS=['Poor','Unsatisfactory','Satisfactory','Good','Like New'];
@@ -149,6 +149,13 @@ const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&g
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 const nowISO=()=>new Date().toISOString();
 const todayDMY=()=>{const d=new Date();return String(d.getDate()).padStart(2,'0')+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+d.getFullYear()};
+function saveOffer(list){const d=document.createElement('div');d.className='toast';d.style.cssText+='display:flex;gap:10px;align-items:center;padding:8px 10px 8px 16px;white-space:nowrap';
+  d.innerHTML=`<span>Saved in app</span><button class="btn" style="padding:6px 10px;font-size:13px">📥 Copy to Photos</button><button class="btn sec" style="padding:6px 8px;font-size:13px">✕</button>`;
+  const [b1,b2]=d.querySelectorAll('button');b1.onclick=async()=>{d.remove();await shareToPhotos(list)};b2.onclick=()=>d.remove();document.body.appendChild(d);setTimeout(()=>d.remove(),7000)}
+async function shareToPhotos(list){try{const files=[];for(const m of list){const full=m.blob?m:await mediaGet(m.id);if(!full)continue;files.push(new File([full.blob],full.name||('VMI_'+full.id+'.'+extOf(full)),{type:full.mime||'image/jpeg'}))}
+  if(!files.length)return;if(!(navigator.canShare&&navigator.canShare({files}))){toast('Sharing not supported here');return}
+  await navigator.share({files});for(const m of list){const x=await mediaGet(m.id);if(x){x.backedUp=nowISO();await mediaPut(x)}const mm=S.media.find(y=>y.id===m.id);if(mm)mm.backedUp=nowISO()}toast('Choose “Save Image(s)” for Photos');}
+  catch(e){if(e.name!=='AbortError')toast(e.message)}}
 function toast(m){const t=document.createElement('div');t.className='toast';t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),1800)}
 let saveT;function save(){clearTimeout(saveT);saveT=setTimeout(()=>{S.insp.updated=nowISO();inspPut(S.insp)},300)}
 function saveNow(){clearTimeout(saveT);S.insp.updated=nowISO();return inspPut(S.insp)}
@@ -194,11 +201,11 @@ function renderBody(){const a=$('#app');const y=window.scrollY;
 function vHome(){let h='';
   if(!S.pack)h+=`<div class="card"><b>Load the Jibe data pack first</b><p class="muted">One-time step. Pick <i>VMI_datapack.json</i> from Files › OneDrive › Claude Data › Vessel Claude Inspection.</p><button class="btn full" data-act="importPack">Import data pack</button></div>`;
   const open=S.list.filter(i=>i.status!=='Completed');
-  if(open.length)h+=`<h2>Continue inspection</h2>`+open.map(i=>`<button class="z" style="display:flex;width:100%;border:0;background:#fff;border-radius:10px;padding:12px;margin-bottom:6px;text-align:left" data-act="openInsp" data-id="${i.id}"><span class="nm" style="flex:1"><b>${esc(i.vessel)}</b><br><span class="muted">Started ${i.created.slice(0,10)} · ${i.findings.length} findings</span></span>›</button>`).join('');
+  if(open.length)h+=`<h2>Continue inspection</h2>`+open.map(i=>`<button class="z" style="display:flex;width:100%;border:0;background:#fff;border-radius:10px;padding:12px;margin-bottom:6px;text-align:left" data-act="openInsp" data-id="${i.id}"><span class="nm" style="flex:1"><b>${esc(i.vessel)}</b><br><span class="muted">Started ${i.created.slice(0,10)} · ${i.findings.length} findings</span></span><span data-act="askDel" data-id="${i.id}" style="padding:6px 10px;font-size:20px">🗑</span>›</button>`).join('');
   h+=`<h2>Start inspection – tap vessel on boarding</h2><div class="vgrid">`+VESSELS.map(([id,n])=>{const c=S.list.filter(i=>i.vesselId===id);const last=c.sort((a,b)=>b.created.localeCompare(a.created))[0];
     return`<button class="vcard" data-act="newInsp" data-id="${id}" data-n="${n}">${n}<small>${last?'Last: '+last.created.slice(0,10)+' ('+last.status+')':'No inspections yet'}</small></button>`}).join('')+`</div>`;
   const done=S.list.filter(i=>i.status==='Completed');
-  if(done.length)h+=`<h2>Completed</h2>`+done.map(i=>`<button class="z" style="display:flex;width:100%;border:0;background:#fff;border-radius:10px;padding:12px;margin-bottom:6px;text-align:left" data-act="openInsp" data-id="${i.id}"><span style="flex:1"><b>${esc(i.vessel)}</b><br><span class="muted">${i.created.slice(0,10)} → ${(i.completedAt||'').slice(0,10)} · ${i.findings.length} findings</span></span>›</button>`).join('');
+  if(done.length)h+=`<h2>Completed</h2>`+done.map(i=>`<button class="z" style="display:flex;width:100%;border:0;background:#fff;border-radius:10px;padding:12px;margin-bottom:6px;text-align:left" data-act="openInsp" data-id="${i.id}"><span style="flex:1"><b>${esc(i.vessel)}</b><br><span class="muted">${i.created.slice(0,10)} → ${(i.completedAt||'').slice(0,10)} · ${i.findings.length} findings</span></span><span data-act="askDel" data-id="${i.id}" style="padding:6px 10px;font-size:20px">🗑</span>›</button>`).join('');
   h+=`<p class="muted" style="text-align:center;margin-top:20px">Data stays on this iPhone. App v${APPV}${S.pack?' · Data pack '+esc(S.pack.version):''}</p>`;return h}
 
 function fld(path,label,type='text',ph=''){const v=getPath(path)??'';
@@ -207,7 +214,10 @@ function fld(path,label,type='text',ph=''){const v=getPath(path)??'';
 function getPath(p){return p.split('.').reduce((o,k)=>o?.[k],S.insp)}
 function setPath(p,v){const ks=p.split('.');let o=S.insp;ks.slice(0,-1).forEach(k=>{o[k]=o[k]??{};o=o[k]});o[ks.at(-1)]=v}
 
-function vBoarding(){return`<div class="card"><h3>Boarding</h3>${fld('boarding.port','Port / location')}
+function jibeCard(){const I=S.insp;const L=(S.pack?.jibePlanned?.[I.vesselId])||[];const cur=I.jibe?.code||'';
+  if(!L.length)return`<div class="card" style="border-left:4px solid var(--warn)"><h3>Jibe report link</h3><p><b>No Jibe inspection created yet for ${esc(I.vessel)}.</b></p><p class="muted">Create the Vessel Manager Inspection in Jibe (Planned), then ask Claude to refresh the Jibe list and re-import the data pack.</p>${cur?`<p>Linked: <b>${esc(cur)}</b></p>`:''}</div>`;
+  return`<div class="card"><h3>Jibe report link</h3><select data-jibe="1"><option value="">— select Jibe inspection —</option>${L.map(j=>`<option value="${esc(j.code)}" ${cur===j.code?'selected':''}>${esc(j.code)} · ${esc(j.type)} · ${esc(j.date)}${j.port?' · '+esc(j.port):''}</option>`).join('')}</select><p class="muted">After completion, the Report tab offers “Upload to Jibe”.</p></div>`}
+function vBoarding(){return jibeCard()+`<div class="card"><h3>Boarding</h3>${fld('boarding.port','Port / location')}
 ${fld('boarding.embark','Embarked','datetime-local')}</div>
 <div class="card"><h3>Opening meeting</h3><div class="two"><div>${fld('boarding.openStart','From','datetime-local')}</div><div>${fld('boarding.openEnd','To','datetime-local')}</div></div>
 ${fld('boarding.attendees','Attended by','text')}</div>
@@ -318,7 +328,10 @@ function vReport(){const I=S.insp;let h=`<div class="card"><h3>Executive Summary
     h+=`<label>${String(ix+1).padStart(2,'0')} – ${esc(s)}${nf?` · <a href="#" data-act="preIns" data-id="${id}">insert ${nf} finding(s)</a>`:''}</label><textarea data-bind="preamble.${id}">${esc(I.preamble[id]||'')}</textarea>${preCap(id)}`});h+='</div>'});
   h+=`<div class="card"><h3>Dates</h3>${DATE_KEYS.map(k=>`<label>${k}</label><input data-bind="dates.${k}" value="${esc(I.dates[k]||'')}" placeholder="NA">`).join('')}</div>`;
   h+=I.status==='Completed'?`<div class="card"><b>✅ Completed ${I.completedAt?.slice(0,16).replace('T',' ')}</b><button class="btn sec full" data-act="reopen">Reopen inspection</button></div>`
-   :`<button class="btn grn full" data-act="complete">✔︎ Complete inspection</button>`;return h}
+   :`<button class="btn grn full" data-act="complete">✔︎ Complete inspection</button>`;
+  h+=`<div class="card"><h3>Upload to Jibe</h3>${I.jibe?.code?`<p>Linked Jibe report: <b>${esc(I.jibe.code)}</b></p>`:'<p style="color:var(--bad)">Not linked – choose the Jibe inspection on the Boarding tab.</p>'}
+  ${I.jibeUpload?`<p>✅ Upload requested ${I.jibeUpload.slice(0,16).replace('T',' ')}. Sync the package, then ask Claude: “upload my inspection to Jibe” (MacBook on, Edge open).</p><button class="btn sec full" data-act="jibeReq">Cancel upload request</button>`
+  :`<p class="muted">Claude fills the Jibe report from the synced data: checklist and condition marks, findings with photos, Preamble and Executive Summary drafts. You review in Jibe before submitting.</p><button class="btn full" data-act="jibeReq" ${I.jibe?.code&&I.status==='Completed'?'':'disabled style="opacity:.5"'}>Request upload to Jibe</button>${I.status!=='Completed'?'<p class="muted">Available after “Complete inspection”.</p>':''}`}</div>`;return h}
 
 function vExport(){const I=S.insp;const ms=S.media;const nw=ms.filter(m=>!I.lastExport||m.ts>I.lastExport);
   const sz=a=>(a.reduce((s,m)=>s+(m.size||0),0)/1048576).toFixed(1)+' MB';
@@ -327,6 +340,7 @@ function vExport(){const I=S.insp;const ms=S.media;const nw=ms.filter(m=>!I.last
   <label><input type="checkbox" id="exNew" style="width:auto" checked> Only media new since last sync (data files always full)</label>
   <label><input type="checkbox" id="exVid" style="width:auto" checked> Include videos</label>
   <button class="btn full" data-act="buildZip">Build sync package</button><div id="zipOut"></div></div>
+  <div class="card"><h3>Back up photos to iPhone Photos</h3><p class="muted">${ms.filter(m=>m.kind==='photo'&&!m.backedUp).length} photos not yet copied to Photos. Copies carry the area / item / date label; file names follow the same pattern.</p><button class="btn sec full" data-act="backupPhotos">Copy remaining photos to Photos</button></div>
   <div class="card"><h3>Storage</h3><div id="stor" class="muted">…</div></div>`}
 
 /* ================= modal: finding / voice / viewer / settings ================= */
@@ -389,6 +403,8 @@ async function viewMedia(id){const m=await mediaGet(id);if(!m)return;const u=URL
 function settingsSheet(){modal(`<div class="top"><h2>Settings</h2><button class="btn sec" data-act="close">Close</button></div>
   <label><input type="checkbox" style="width:auto" data-set="compress" ${S.settings.compress?'checked':''}> Compress photos to 2048 px (saves space, ~0.5 MB each)</label>
   <label><input type="checkbox" style="width:auto" data-set="openGuid" ${S.settings.openGuid?'checked':''}> Always expand Jibe guidance</label>
+  <label><input type="checkbox" style="width:auto" data-set="stamp" ${S.settings.stamp!==false?'checked':''}> Print area / item / date label on each photo</label>
+  <label><input type="checkbox" style="width:auto" data-set="askSave" ${S.settings.askSave!==false?'checked':''}> Offer “Copy to Photos” after each photo</label>
   <button class="btn sec full" data-act="importPack">Import data pack / previous findings</button>
   <button class="btn sec full" data-act="persist">Protect storage from iOS clean-up</button>
   <p class="muted">Data pack: ${S.pack?esc(S.pack.version)+' · '+S.pack.checklist.length+' checklist · '+S.pack.ca.length+' condition items':'not loaded'}</p>`)}
@@ -397,12 +413,30 @@ function settingsSheet(){modal(`<div class="top"><h2>Settings</h2><button class=
 async function compressImg(file){if(!S.settings.compress)return file;try{const bmp=await createImageBitmap(file);const M=2048;const k=Math.min(1,M/Math.max(bmp.width,bmp.height));
   const c=document.createElement('canvas');c.width=Math.round(bmp.width*k);c.height=Math.round(bmp.height*k);c.getContext('2d').drawImage(bmp,0,0,c.width,c.height);
   return await new Promise(r=>c.toBlob(b=>r(b||file),'image/jpeg',.82))}catch(e){return file}}
+function shortName(s,n=28){return safe(String(s||'').replace(/\s*[–-]\s.*$/,'')).replace(/\s+/g,'-').slice(0,n)}
+function photoLabel(ctx){const I=S.insp;const z=zoneById(ctx.zone||'GEN');const mz=mainOfZone(ctx.zone||'GEN');const parts=[I.vessel.replace(/^Federal\s+/,''),new Date().toISOString().slice(0,10),mz.name];
+  if(mz.subs.length>1)parts.push(z.name.split(' – ')[0]);
+  if(ctx.finding){const f=I.findings.find(x=>x.id===ctx.finding);parts.push('F'+String(f?.no||0).padStart(3,'0')+' '+(f?.title||'finding'))}
+  else if(ctx.cl)parts.push(ctx.cl+' '+(clItems().find(i=>i.id===ctx.cl)?.q||''));
+  else if(ctx.ca)parts.push(caItems().find(i=>i.id===ctx.ca)?.comp||'Condition');
+  else if(ctx.prev)parts.push('Prev '+(prevItems().find(p=>p.id===ctx.prev)?.ref||''));
+  else if(ctx.pre)parts.push(ctx.pre==='EXEC'?'Executive Summary':'Preamble '+ctx.pre);
+  else parts.push('General');return parts}
+function mediaFileName(m,parts){const t=new Date(m.ts);const hh=String(t.getHours()).padStart(2,'0')+String(t.getMinutes()).padStart(2,'0')+String(t.getSeconds()).padStart(2,'0');
+  return [parts[0],parts[1],...parts.slice(2).map(x=>shortName(x))].join('_')+'_'+hh+'.'+extOf(m)}
+async function stampImg(blob,text){try{const bmp=await createImageBitmap(blob);const c=document.createElement('canvas');c.width=bmp.width;c.height=bmp.height;const g=c.getContext('2d');g.drawImage(bmp,0,0);
+  const fs=Math.max(18,Math.round(c.width/55));g.font=`600 ${fs}px -apple-system,Helvetica,Arial`;const lines=[];let cur='';text.split(' ').forEach(w=>{if(g.measureText(cur+' '+w).width>c.width-2*fs&&cur){lines.push(cur);cur=w}else cur=cur?cur+' '+w:w});lines.push(cur);
+  const h=lines.length*fs*1.3+fs*.8;g.fillStyle='rgba(0,0,0,.6)';g.fillRect(0,c.height-h,c.width,h);g.fillStyle='#fff';lines.forEach((l,i)=>g.fillText(l,fs,c.height-h+fs*1.15+i*fs*1.3));
+  return await new Promise(r=>c.toBlob(b=>r(b||blob),'image/jpeg',.85))}catch(e){return blob}}
 async function addMedia(blob,kind,ctx,caption=''){const m={id:'M'+uid(),inspId:S.insp.id,kind,mime:blob.type||'',size:blob.size,blob,zone:ctx.zone||'GEN',clId:ctx.cl||'',caId:ctx.ca||'',findingId:ctx.finding||'',prevId:ctx.prev||'',preId:ctx.pre||'',caption,ts:nowISO()};
+  if(S.insp){const parts=photoLabel(ctx);m.name=mediaFileName(m,parts);m.label=parts.join(' · ')}
   await mediaPut(m);const {blob:_,...meta}=m;S.media.push(meta);return m}
 let PEND=null;
 async function onFile(e,kind){const files=[...e.target.files];e.target.value='';if(!files.length||!PEND)return;const ctx=PEND;PEND=null;
-  for(const f of files){const k=kind||(f.type.startsWith('video')?'video':'photo');const b=k==='photo'?await compressImg(f):f;await addMedia(b,k,ctx)}
-  toast(files.length>1?files.length+' items saved':(kind==='video'?'Video saved':'Photo saved'));
+  const added=[];for(const f of files){const k=kind||(f.type.startsWith('video')?'video':'photo');let b=k==='photo'?await compressImg(f):f;
+    if(k==='photo'&&S.settings.stamp!==false)b=await stampImg(b,photoLabel(ctx).join(' · '));added.push(await addMedia(b,k,ctx))}
+  if(S.settings.askSave!==false&&added.length&&!kind)toast(files.length+' items saved');
+  else if(S.settings.askSave!==false&&added.length)saveOffer(added);else toast(files.length>1?files.length+' items saved':(kind==='video'?'Video saved':'Photo saved'));
   if(ctx.finding)findingSheet(S.insp.findings.find(x=>x.id===ctx.finding));S._keepScroll=true;renderBody()}
 async function loadThumbs(){for(const el of document.querySelectorAll('[data-thumb]')){const id=el.dataset.thumb;if(!id)continue;
   if(!S.urls[id]){const m=await mediaGet(id);if(!m)continue;S.urls[id]=URL.createObjectURL(m.blob)}el.style.backgroundImage=`url(${S.urls[id]})`}}
@@ -428,7 +462,7 @@ function extOf(m){const t=m.mime||'';return t.includes('jpeg')?'jpg':t.includes(
 function mainFolder(zid){const ms=mains();const m=mainOfZone(zid);const i=ms.findIndex(x=>x.id===m.id);return String(i+1).padStart(2,'0')+' '+safe(m.name)}
 function inspFolderName(I){const d=new Date(I.created);const dd=String(d.getDate()).padStart(2,'0')+'-'+d.toLocaleString('en-GB',{month:'short'})+'-'+d.getFullYear();return`My inspection (${safe(I.boarding.port||'Location')}) (${dd})`}
 function mediaPath(m){const I=S.insp;const fn=f=>'F'+String(f.no).padStart(3,'0');
-  const base=m.ts.slice(0,19).replace(/[-:]/g,'').replace('T','_')+'_'+m.kind+'_'+m.id.slice(-5)+'.'+extOf(m);
+  const base=m.name||(m.ts.slice(0,19).replace(/[-:]/g,'').replace('T','_')+'_'+m.kind+'_'+m.id.slice(-5)+'.'+extOf(m));
   if(m.findingId){const f=I.findings.find(x=>x.id===m.findingId);return`Findings/${f?fn(f)+' '+safe(f.title||'untitled'):'unlinked'}/${base}`}
   if(m.preId)return`Report notes/${m.preId==='EXEC'?'Executive Summary':m.preId+' '+safe(PRE_LIST.find(p=>p.id===m.preId)?.name)}/${base}`;
   const top=m.kind==='video'?'Videos':'Photos';const z=zoneById(m.zone);const sub=mainOfZone(m.zone).subs.length>1?safe(z.name.split(' – ')[0])+'/':'';
@@ -464,7 +498,10 @@ document.addEventListener('click',async e=>{const t=e.target.closest('[data-act]
   case'importPack':$('#fPack').click();break;
   case'persist':if(navigator.storage?.persist){const ok=await navigator.storage.persist();toast(ok?'Storage protected':'iOS declined – add to Home Screen first')}break;
   case'newInsp':if(!S.pack){toast('Import data pack first');return}{const ex=S.list.find(i=>i.vesselId===d.id&&i.status!=='Completed');
-    if(ex){S.insp=ex}else{S.insp=newInspection(d.id,d.n);S.list.push(S.insp);await saveNow()}S.media=(await mediaByInsp(S.insp.id)).map(({blob,...m})=>m);S.view='boarding';render();window.scrollTo(0,0)}break;
+    if(ex){S.insp=ex}else{S.insp=newInspection(d.id,d.n);{const L=(S.pack?.jibePlanned?.[d.id])||[];if(L.length===1)S.insp.jibe={...L[0],linkedAt:nowISO()}}S.list.push(S.insp);await saveNow()}S.media=(await mediaByInsp(S.insp.id)).map(({blob,...m})=>m);S.view='boarding';render();window.scrollTo(0,0)}break;
+  case'askDel':{e.stopPropagation();const I=S.list.find(i=>i.id===d.id);const ms=await mediaByInsp(I.id);const unsynced=ms.filter(m=>!I.lastExport||m.ts>I.lastExport).length;
+    modal(`<div class="top"><h2>Delete inspection?</h2></div><p><b>${esc(I.vessel)}</b> – started ${I.created.slice(0,10)}</p><p>This permanently removes from this iPhone: ${I.findings.length} findings, ${ms.length} photos / videos / voice notes, and all checklist marks.</p>${unsynced?`<p style="color:var(--bad)"><b>${unsynced} items have not been synced to OneDrive yet.</b></p>`:'<p class="muted">Everything has been synced to OneDrive already.</p>'}<p class="muted">Copies already saved to OneDrive or the Photos app are not affected. This cannot be undone.</p><div class="two"><button class="btn sec" data-act="close">Cancel</button><button class="btn red" data-act="doDel" data-id="${I.id}">Delete</button></div>`);break}
+  case'doDel':{const id=d.id;const ms=await mediaByInsp(id);for(const m of ms)await mediaDel(m.id);await tx('insp','readwrite',st=>{st.delete(id)});S.list=S.list.filter(i=>i.id!==id);if(S.insp?.id===id)S.insp=null;closeModal();S.view='home';render();toast('Inspection deleted');break}
   case'openInsp':S.insp=S.list.find(i=>i.id===d.id);S.media=(await mediaByInsp(S.insp.id)).map(({blob,...m})=>m);S.view='areas';render();break;
   case'home':S.view='home';S.insp=null;render();break;
   case'autoplan':autoplan();break;
@@ -488,7 +525,9 @@ document.addEventListener('click',async e=>{const t=e.target.closest('[data-act]
   case'genExec':S.insp.exec=execText();save();S._keepScroll=true;renderBody();break;
   case'preIns':{const L=S.insp.findings.filter(f=>f.pre===d.id).map(f=>`- ${f.title}${f.text?': '+f.text.replace(/\n/g,' '):''}`).join('\n');S.insp.preamble[d.id]=(S.insp.preamble[d.id]?S.insp.preamble[d.id]+'\n':'')+L;save();S._keepScroll=true;renderBody();break}
   case'complete':if(!t.dataset.sure){t.dataset.sure=1;t.textContent='Tap again to confirm completion';break}S.insp.status='Completed';S.insp.completedAt=nowISO();S.insp.dates['Completed']=todayDMY();if(!S.insp.exec)S.insp.exec=execText();await saveNow();S.view='export';render();toast('Inspection completed – sync when online');storInfo();break;
+  case'jibeReq':S.insp.jibeUpload=S.insp.jibeUpload?null:nowISO();await saveNow();S._keepScroll=true;renderBody();toast(S.insp.jibeUpload?'Upload requested – now sync':'Request cancelled');break;
   case'reopen':S.insp.status='In progress';S.insp.completedAt=null;save();renderBody();break;
+  case'backupPhotos':{const L=S.media.filter(m=>m.kind==='photo'&&!m.backedUp).slice(0,40);if(!L.length){toast('All photos already copied');break}await shareToPhotos(L);renderBody();break}
   case'buildZip':buildZip();break;case'shareZip':shareZip();break;case'markSynced':markSynced();break;
   }});
 function closeFinding(id){const f=S.insp.findings.find(x=>x.id===id);if(f){delete f.fresh;if(!f.title&&!f.text&&!S.media.some(m=>m.findingId===id)){S.insp.findings=S.insp.findings.filter(x=>x.id!==id)}}
@@ -502,6 +541,7 @@ document.addEventListener('change',e=>{const t=e.target;
   if(t.dataset.bindc){setPath(t.dataset.bindc,t.checked);save()}
   if(t.dataset.fbc&&S.curFinding){S.curFinding[t.dataset.fbc]=t.checked;save()}
   if(t.dataset.fb&&S.curFinding){S.curFinding[t.dataset.fb]=t.value;save();if(t.dataset.fb==='zone'){S.curFinding.clId=S.curFinding.clId;findingSheet(S.curFinding)}}
+  if(t.dataset.jibe){const L=(S.pack?.jibePlanned?.[S.insp.vesselId])||[];const j=L.find(x=>x.code===t.value);S.insp.jibe=j?{...j,linkedAt:nowISO()}:null;save();toast(j?'Linked to '+j.code:'Jibe link removed')}
   if(t.dataset.plan){S.insp.plan.assign[t.dataset.plan]=t.value;save()}
   if(t.dataset.set){S.settings[t.dataset.set]=t.checked;kvSet('settings',S.settings);S._keepScroll=true;renderBody()}});
 $('#fPhoto').onchange=e=>onFile(e,'photo');$('#fVideo').onchange=e=>onFile(e,'video');$('#fLib').onchange=e=>onFile(e,null);
