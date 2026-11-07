@@ -34,6 +34,8 @@ nav.tabs button.on{color:var(--acc);font-weight:600}
 h2{font-size:16px;margin:14px 2px 8px}
 h3{font-size:14px;margin:10px 0 6px;color:var(--blue)}
 label{display:block;font-size:12px;color:var(--mut);margin:8px 0 3px}
+input[type=datetime-local],input[type=date]{-webkit-appearance:none;appearance:none;min-width:0;max-width:100%;display:block;min-height:42px}
+.two>div{min-width:0}
 input,textarea,select{width:100%;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;padding:8px;background:#fff;color:var(--ink)}
 textarea{min-height:64px;resize:vertical}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
@@ -98,7 +100,7 @@ pre.out{white-space:pre-wrap;background:#fff;border:1px solid var(--line);border
 <script>
 'use strict';
 /* ================= constants ================= */
-const APPV='1.2.0';
+const APPV='1.2.1';
 const VESSELS=[['SUTTON','Federal Sutton'],['SWIFT','Federal Swift'],['SPEY','Federal Spey'],['TYNE','Federal Tyne'],['TWEED','Federal Tweed']];
 const CL_ANS=['Yes','No','NA','NS'];
 const CA_ANS=['Poor','Unsatisfactory','Satisfactory','Good','Like New'];
