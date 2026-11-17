@@ -103,7 +103,7 @@ details.pvbox{margin:14px 0;background:#fff;border:1px solid var(--line);border-
 <script>
 'use strict';
 /* ================= constants ================= */
-const APPV='1.6';
+const APPV='1.6.1';
 const GROUPS=[{t:'My vessels',own:true,v:[['SUTTON','Federal Sutton'],['SWIFT','Federal Swift'],['SPEY','Federal Spey'],['TYNE','Federal Tyne'],['TWEED','Federal Tweed']]},
 {t:"Anatolii's vessels",v:[['SEVERN','Federal Severn'],['SKEENA','Federal Skeena'],['SPRUCE','Federal Spruce'],['SABLE','Federal Sable'],['KIBUNE','Federal Kibune']]},
 {t:"Gaurav's vessels",v:[['SKYE','Federal Skye'],['TAKASE','Federal Takase'],['TRIDENT','Federal Trident'],['TAMBO','Federal Tambo'],['TIBER','Federal Tiber']]}];
@@ -540,7 +540,7 @@ async function findingsReport(){toast('Building findings report…');try{const f
   <p class="muted">Pick Mail, WhatsApp or Save to Files in the share sheet. Avoid Notes or Copy: they keep only the file name.</p>`)}catch(e){toast('Failed: '+e.message)}}
 async function fdocShare(){const f=S.fdoc;if(!f)return;try{if(navigator.canShare&&navigator.canShare({files:[f]}))await navigator.share({files:[f]});else toast('Use Open / Save')}catch(e){if(e.name!=='AbortError')toast(e.message)}}
 
-const safe=s=>String(s||'').replace(/[\\/:*?"<>|]+/g,'-').replace(/\s+/g,' ').trim().slice(0,70);
+const safe=s=>String(s||'').replace(/[\\/:*?"<>|]+/g,'-').replace(/\s+/g,' ').trim().slice(0,70).replace(/[\s.,;]+$/,'');
 const csv=rows=>rows.map(r=>r.map(v=>{v=String(v??'');return/[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}).join(',')).join('\r\n');
 function extOf(m){const t=m.mime||'';return t.includes('jpeg')?'jpg':t.includes('png')?'png':t.includes('heic')?'heic':t.includes('quicktime')?'mov':t.includes('mp4')?(m.kind==='voice'?'m4a':'mp4'):t.includes('webm')?'webm':t.includes('aac')?'aac':m.kind==='photo'?'jpg':'bin'}
 function mainFolder(zid){const ms=mains();const m=mainOfZone(zid);const i=ms.findIndex(x=>x.id===m.id);return String(i+1).padStart(2,'0')+' '+safe(m.name)}
