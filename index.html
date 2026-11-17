@@ -102,7 +102,7 @@ details.pvbox{margin:14px 0;background:#fff;border:1px solid var(--line);border-
 <script>
 'use strict';
 /* ================= constants ================= */
-const APPV='1.5';
+const APPV='1.5.1';
 const GROUPS=[{t:'My vessels',own:true,v:[['SUTTON','Federal Sutton'],['SWIFT','Federal Swift'],['SPEY','Federal Spey'],['TYNE','Federal Tyne'],['TWEED','Federal Tweed']]},
 {t:"Anatolii's vessels",v:[['SEVERN','Federal Severn'],['SKEENA','Federal Skeena'],['SPRUCE','Federal Spruce'],['SABLE','Federal Sable'],['KIBUNE','Federal Kibune']]},
 {t:"Gaurav's vessels",v:[['SKYE','Federal Skye'],['TAKASE','Federal Takase'],['TRIDENT','Federal Trident'],['TAMBO','Federal Tambo'],['TIBER','Federal Tiber']]}];
@@ -518,9 +518,13 @@ async function buildFindingsDocx(){const I=S.insp;const F=[...I.findings].filter
    {name:'word/document.xml',data:doc},{name:'word/_rels/document.xml.rels',data:rels},...media];
   const z=await makeZip(E);const nm=`${safe(I.vessel)} - VM Inspection Findings - ${today}.docx`;
   return new File([z],nm,{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'})}
-async function findingsReport(){toast('Building findings report…');try{const f=await buildFindingsDocx();if(!f)return;S.fdoc=f;
-  if(navigator.canShare&&navigator.canShare({files:[f]})){try{await navigator.share({files:[f],title:f.name});return}catch(e){if(e.name==='AbortError')return}}
-  const a=document.createElement('a');a.href=URL.createObjectURL(f);a.download=f.name;document.body.appendChild(a);a.click();a.remove()}catch(e){toast('Failed: '+e.message)}}
+async function findingsReport(){toast('Building findings report…');try{const f=await buildFindingsDocx();if(!f)return;S.fdoc=f;S.fdocUrl&&URL.revokeObjectURL(S.fdocUrl);S.fdocUrl=URL.createObjectURL(f);
+  modal(`<div class="top"><h2>Findings report ready</h2><button class="btn sec" data-act="close">Close</button></div>
+  <p><b>${esc(f.name)}</b><br><span class="muted">${(f.size/1048576).toFixed(1)} MB · Word document</span></p>
+  <button class="btn full" data-act="fdocShare">Share file (Mail, WhatsApp, Save to Files)</button>
+  <a class="btn sec full" style="display:block;text-align:center;margin-top:8px;text-decoration:none" href="${S.fdocUrl}" download="${esc(f.name)}" target="_blank">Open / Save</a>
+  <p class="muted">Pick Mail, WhatsApp or Save to Files in the share sheet. Avoid Notes or Copy: they keep only the file name.</p>`)}catch(e){toast('Failed: '+e.message)}}
+async function fdocShare(){const f=S.fdoc;if(!f)return;try{if(navigator.canShare&&navigator.canShare({files:[f]}))await navigator.share({files:[f]});else toast('Use Open / Save')}catch(e){if(e.name!=='AbortError')toast(e.message)}}
 
 const safe=s=>String(s||'').replace(/[\\/:*?"<>|]+/g,'-').replace(/\s+/g,' ').trim().slice(0,70);
 const csv=rows=>rows.map(r=>r.map(v=>{v=String(v??'');return/[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}).join(',')).join('\r\n');
@@ -594,7 +598,7 @@ document.addEventListener('click',async e=>{const t=e.target.closest('[data-act]
   case'jibeReq':S.insp.jibeUpload=S.insp.jibeUpload?null:nowISO();await saveNow();S._keepScroll=true;renderBody();toast(S.insp.jibeUpload?'Upload requested – now sync':'Request cancelled');break;
   case'reopen':S.insp.status='In progress';S.insp.completedAt=null;save();renderBody();break;
   case'backupPhotos':{const L=S.media.filter(m=>m.kind==='photo'&&!m.backedUp).slice(0,40);if(!L.length){toast('All photos already copied');break}await shareToPhotos(L);renderBody();break}
-  case'buildZip':buildZip();break;case'findingsDoc':findingsReport();break;case'shareZip':shareZip();break;case'markSynced':markSynced();break;
+  case'buildZip':buildZip();break;case'findingsDoc':findingsReport();break;case'fdocShare':fdocShare();break;case'shareZip':shareZip();break;case'markSynced':markSynced();break;
   }});
 function closeFinding(id){const f=S.insp.findings.find(x=>x.id===id);if(f){delete f.fresh;if(!f.title&&!f.text&&!S.media.some(m=>m.findingId===id)){S.insp.findings=S.insp.findings.filter(x=>x.id!==id)}}
   save();S.curFinding=null;closeModal();S._keepScroll=true;render()}
