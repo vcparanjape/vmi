@@ -84,6 +84,7 @@ details.guid div{white-space:pre-wrap;font-size:13px;margin-top:6px}
 .prow .nm{flex:1;font-size:14px}.prow select{width:84px;padding:6px}
 pre.out{white-space:pre-wrap;background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px;font:13px/1.45 ui-monospace,Menlo,monospace}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(90px + env(safe-area-inset-bottom));background:#222;color:#fff;padding:9px 16px;border-radius:20px;z-index:60;font-size:14px}
+.mand{margin:6px 0;padding:8px 10px;border-radius:8px;background:#fff4e5;border:1px solid #f0b35a;font-size:14px}.mand.ok{background:#eaf7ee;border-color:#8fd19e}.mand details{margin-top:6px}.mand summary{color:var(--blue);font-size:13px}.refs{display:flex;gap:8px;overflow-x:auto;padding-top:6px}.refs figure{margin:0;flex:0 0 auto;width:150px}.refs img{width:150px;border-radius:6px;border:1px solid var(--line)}.refs figcaption{font-size:11px;color:#666}
 .filt.hf{margin:8px 0 0}.filt.hf button{background:rgba(255,255,255,.14);color:#fff;border-color:rgba(255,255,255,.25);padding:6px 2px;font-size:12px}.filt.hf button.on{background:#fff;color:var(--navy)}
 details.pvbox{margin:14px 0;background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 10px}details.pvbox>summary{font-weight:700;font-size:15px;padding:4px 0}
 .filt{display:flex;gap:6px;margin:6px 0 10px}.filt button{flex:1;border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px;font-size:13px}.filt button.on{background:var(--blue);color:#fff;border-color:var(--blue)}
@@ -102,7 +103,7 @@ details.pvbox{margin:14px 0;background:#fff;border:1px solid var(--line);border-
 <script>
 'use strict';
 /* ================= constants ================= */
-const APPV='1.5.2';
+const APPV='1.6';
 const GROUPS=[{t:'My vessels',own:true,v:[['SUTTON','Federal Sutton'],['SWIFT','Federal Swift'],['SPEY','Federal Spey'],['TYNE','Federal Tyne'],['TWEED','Federal Tweed']]},
 {t:"Anatolii's vessels",v:[['SEVERN','Federal Severn'],['SKEENA','Federal Skeena'],['SPRUCE','Federal Spruce'],['SABLE','Federal Sable'],['KIBUNE','Federal Kibune']]},
 {t:"Gaurav's vessels",v:[['SKYE','Federal Skye'],['TAKASE','Federal Takase'],['TRIDENT','Federal Trident'],['TAMBO','Federal Tambo'],['TIBER','Federal Tiber']]}];
@@ -199,10 +200,10 @@ function tabs(){const t=$('#tabs');if(!S.insp||S.view==='home'){t.hidden=true;re
   t.innerHTML=T.map(([v,i,l])=>`<button data-act="tab" data-v="${v}" class="${S.view===v||(v==='areas'&&['zone','main'].includes(S.view))?'on':''}"><b>${i}</b>${l}</button>`).join('')}
 function render(){tabs();const v=S.view;
   if(v==='home'){header('VM Inspection',{right:`<button data-act="settings">⚙︎</button>`})}
-  else{const nf=S.insp.findings.length;header(S.insp.vessel+(S.view==='zone'?' · '+mainOfZone(S.zone).name:S.view==='main'?' · '+mainById(S.main).name:''),{back:['zone','main'].includes(S.view),search:['areas','zone','main'].includes(v),extra:v==='zone'?zoneFilt():'',right:`<span class="pill">${nf} F</span><button data-act="home">⌂</button>`})}
+  else{const nf=S.insp.findings.length;header(S.insp.vessel+(S.view==='mand'?' · Mandatory photos':S.view==='zone'?' · '+mainOfZone(S.zone).name:S.view==='main'?' · '+mainById(S.main).name:''),{back:['zone','main','mand'].includes(S.view),search:['areas','zone','main'].includes(v),extra:v==='zone'?zoneFilt():'',right:`<span class="pill">${nf} F</span><button data-act="home">⌂</button>`})}
   renderBody()}
 function renderBody(){const a=$('#app');const y=window.scrollY;
-  const fn={main:vMain,home:vHome,boarding:vBoarding,plan:vPlan,areas:vAreas,zone:vZone,findings:vFindings,report:vReport,export:vExport}[S.view];
+  const fn={mand:vMand,main:vMain,home:vHome,boarding:vBoarding,plan:vPlan,areas:vAreas,zone:vZone,findings:vFindings,report:vReport,export:vExport}[S.view];
   a.innerHTML=fn();if(S._keepScroll){window.scrollTo(0,y);S._keepScroll=false}loadThumbs()}
 
 function vHome(){let h='';
@@ -260,15 +261,27 @@ function vAreas(){if(S.q.trim())return vSearch();const A=S.insp.plan.assign;cons
   mains().forEach(m=>{const d=A[m.id]&&A[m.id]!=='-'?'Day '+A[m.id]:'Not planned';(groups[d]=groups[d]||[]).push(m)});
   const keys=Object.keys(groups).sort((a,b)=>a==='Not planned'?1:b==='Not planned'?-1:a.localeCompare(b));
   let tn=0,td=0;mains().forEach(m=>{const s=mainStats(m.id);tn+=s.n;td+=s.d});const np=prevItems().length;
-  let h=`<div class="card"><b>Progress ${td}/${tn}</b> <span class="pill">${scopeLevel()} scope</span>${np?` <span class="pill">${np} previous findings to verify</span>`:''}<div class="bar"><i style="width:${tn?td/tn*100:0}%"></i></div></div><div class="zlist">`;
+  const ms=mandStats();let h=`<div class="card"><b>Progress ${td}/${tn}</b> <span class="pill">${scopeLevel()} scope</span>${np?` <span class="pill">${np} previous findings to verify</span>`:''}<div class="bar"><i style="width:${tn?td/tn*100:0}%"></i></div></div>
+  ${ms.n?`<div class="zlist" style="margin-bottom:6px"><button class="z" data-act="mand"><span class="nm"><b>📸 Mandatory photos</b> ${ms.pend?`<span class="pri P1">${ms.pend} pending</span>`:'<span class="pill">all taken ✅</span>'}<div class="bar"><i style="width:${ms.need?ms.got/ms.need*100:0}%"></i></div></span><span class="pc">${ms.got}/${ms.need}</span>›</button></div>`:''}<div class="zlist">`;
   keys.forEach(k=>{h+=`<h2>${k}</h2>`;groups[k].forEach(m=>{const s=mainStats(m.id);const pv=prevItems().filter(p=>m.subs.includes(p.zone)).length;
-    h+=`<button class="z" data-act="main" data-id="${m.id}"><span class="nm"><b>${esc(m.name)}</b>${pv?` <span class="pri PSC">${pv} prev</span>`:''}<div class="bar"><i style="width:${s.n?s.d/s.n*100:0}%"></i></div></span><span class="pc">${s.d}/${s.n}</span>›</button>`})});
+    const mp=mandItems().filter(i=>m.subs.includes(i.zones[0])).reduce((a,i)=>a+Math.max(0,i.mand-mandTaken(i)),0);
+    h+=`<button class="z" data-act="main" data-id="${m.id}"><span class="nm"><b>${esc(m.name)}</b>${pv?` <span class="pri PSC">${pv} prev</span>`:''}${mp?` <span class="pri P1">📸 ${mp}</span>`:''}<div class="bar"><i style="width:${s.n?s.d/s.n*100:0}%"></i></div></span><span class="pc">${s.d}/${s.n}</span>›</button>`})});
   return h+'</div>'}
 function vMain(){if(S.q.trim())return vSearch();const m=mainById(S.main);
   let h=`<div class="card"><b>${esc(m.name)}</b><div class="muted">${m.subs.length} sub-areas · finish this area before moving on</div></div><div class="zlist">`;
   m.subs.forEach(zid=>{const z=zoneById(zid);const s=zoneStats(zid);h+=`<button class="z" data-act="zone" data-id="${zid}"><span class="nm">${esc(z.name)}<div class="bar"><i style="width:${s.n?s.d/s.n*100:0}%"></i></div></span><span class="pc">${s.d}/${s.n}</span>›</button>`});
   return h+'</div>'}
 function itemMedia(k,id){return S.media.filter(m=>m[k]===id)}
+const mandItems=()=>caItems().filter(i=>i.mand);const mandTaken=i=>S.media.filter(m=>m.caId===i.id&&m.kind==='photo').length;
+function mandStats(){let need=0,got=0,itemsLeft=0;for(const i of mandItems()){const t=Math.min(mandTaken(i),i.mand);need+=i.mand;got+=t;if(t<i.mand)itemsLeft++}return{need,got,pend:need-got,itemsLeft,n:mandItems().length}}
+function mandBadge(i){if(!i.mand)return'';const t=mandTaken(i);const ok=t>=i.mand;const R=S.pack?.caRef?.[i.id]||[];
+  return`<div class="mand ${ok?'ok':''}"><b>📸 Mandatory photos: ${Math.min(t,i.mand)}/${i.mand}</b>${ok?' ✅':' – take with 📷 below'}
+  ${R.length?`<details><summary>Jibe reference view${R.length>1?'s ('+R.length+')':''}</summary><div class="refs">${R.map((r,k)=>`<figure><img src="${r.d}" alt=""><figcaption>${k+1}. ${esc(r.n.replace(/\.[a-z]+$/i,''))}</figcaption></figure>`).join('')}</div></details>`:''}</div>`}
+function vMand(){const st=mandStats();const L=mandItems();const by={};L.forEach(i=>{const m=mainOfZone(i.zones[0]).name;(by[m]=by[m]||[]).push(i)});
+  let h=`<div class="card"><b>Mandatory condition photos (Jibe)</b><div class="muted">${st.got}/${st.need} photos taken · <b>${st.pend} pending</b> across ${st.itemsLeft} of ${st.n} items</div><div class="bar"><i style="width:${st.need?st.got/st.need*100:0}%"></i></div>
+  <label style="margin-top:8px"><input type="checkbox" style="width:auto" data-act="mandPend" ${S.mandPend?'checked':''}> Show pending only</label></div>`;
+  for(const m of mains().map(x=>x.name).filter(n=>by[n])){const its=by[m].filter(i=>!S.mandPend||mandTaken(i)<i.mand);if(!its.length)continue;h+=`<h2>${esc(m)}</h2>`+its.map(i=>caCard(i,null)).join('')}
+  return h}
 function mediaThumbs(list){return list.length?`<div class="thumbs">${list.map(m=>`<button class="th ${m.findingId?'f':''}" data-act="viewMedia" data-id="${m.id}" data-thumb="${m.kind==='photo'?m.id:''}">${m.kind==='video'?'🎥':m.kind==='voice'?'🎙':''}</button>`).join('')}</div>`:''}
 function findChips(k,id){return S.insp.findings.filter(f=>f[k]===id).map(f=>`<button class="chip" data-act="editFinding" data-id="${f.id}">⚠️ F${f.no} ${esc(f.title||'(untitled)')}</button>`).join('')}
 function capRow(ctx){const c=Object.entries(ctx).map(([k,v])=>`data-${k}="${esc(v)}"`).join(' ');
@@ -284,7 +297,7 @@ function clCard(i,zid){const r=S.insp.cl[i.id]||{};const out=!inScope('cl',i);co
 function caCard(i,zid){const r=S.insp.ca[i.id]||{};const out=!inScope('ca',i);const hasF=S.insp.findings.some(f=>f.caId===i.id);
   return`<div class="item ${r.a?'done':''} ${hasF||['Poor','Unsatisfactory'].includes(r.a)?'flag':''} ${out?'out':''}" id="it-${i.id}">
   <div class="ih"><span class="code">Condition</span><span class="pri ${priKey(i.pri)}">${priKey(i.pri)}</span><span class="tag">${esc(i.cat)}</span>${zid?'':`<span class="tag">${esc(zoneById(i.zones[0]).name.split(' – ')[0].split(',')[0])}</span>`}</div>
-  <div class="q">${esc(i.comp)}</div>
+  <div class="q">${esc(i.comp)}</div>${mandBadge(i)}
   <div class="seg ca" data-k="ca" data-id="${i.id}">${CA_ANS.map(a=>`<button data-act="ans" data-v="${a}" class="${r.a===a?'on':''}">${a}</button>`).join('')}</div>
   ${i.guid?`<details class="guid" ${S.settings.openGuid?'open':''}><summary>Jibe guidance</summary><div>${esc(i.guid)}</div></details>`:''}
   <textarea data-rem="ca:${i.id}" placeholder="Remarks (tap 🎤 on keyboard to dictate)">${esc(r.rem||'')}</textarea>
@@ -544,7 +557,7 @@ async function buildZip(){const I=S.insp;const onlyNew=$('#exNew').checked,vid=$
   const zn=z=>mainOfZone(z).name+' › '+zoneById(z).name;const fn=f=>'F'+String(f.no).padStart(3,'0');
   E.push({name:root+'_data/inspection.json',data:JSON.stringify({...I,findings:I.findings.map(f=>({...f,...jf(f)})),appv:APPV,folder:inspFolderName(I),previousFindings:prevItems(),zoneNames:Object.fromEntries(zones().map(z=>[z.id,mainOfZone(z.id).name+(mainOfZone(z.id).subs.length>1?' › '+z.name:'')])),mediaIndex:S.media.map(m=>({...m,file:mediaPath(m)}))},null,1)});
   E.push({name:root+'_data/Checklist.csv',data:csv([['Question Number','Question','Answer','Remarks','Group','Priority','Area(s)','Findings'],...clItems().map(i=>[i.id,i.q,I.cl[i.id]?.a||'',I.cl[i.id]?.rem||'',i.group,i.pri,i.zones.map(zn).join(' | '),I.findings.filter(f=>f.clId===i.id).map(fn).join(' ')])])});
-  E.push({name:root+'_data/Condition_Assessment.csv',data:csv([['Operational Category','Component','Answer','Remarks','Priority','Area(s)','Findings'],...caItems().map(i=>[i.cat,i.comp,I.ca[i.id]?.a||'',I.ca[i.id]?.rem||'',i.pri,i.zones.map(zn).join(' | '),I.findings.filter(f=>f.caId===i.id).map(fn).join(' ')])])});
+  E.push({name:root+'_data/Condition_Assessment.csv',data:csv([['Operational Category','Component','Answer','Remarks','Priority','Area(s)','Findings','Mandatory photos','Photos taken'],...caItems().map(i=>[i.cat,i.comp,I.ca[i.id]?.a||'',I.ca[i.id]?.rem||'',i.pri,i.zones.map(zn).join(' | '),I.findings.filter(f=>f.caId===i.id).map(fn).join(' '),i.mand||'',S.media.filter(m=>m.caId===i.id&&m.kind==='photo').length])])});
   E.push({name:root+'_data/Previous_Findings.csv',data:csv([['Source','Ref','Date','Finding','Area','Status now','Remarks'],...prevItems().map(p=>[p.src,p.ref,p.date,p.text,zn(p.zone),I.prev?.[p.id]?.a||'',I.prev?.[p.id]?.rem||''])])});
   E.push({name:root+'_data/Findings.csv',data:csv([['No','Type','Report Type','Category','Priority','Reference','Date','Due Date','Technical Defect','Failure in Critical Machinery','Subject','Description','Suggested Action','Attachment Category','Attachment Remarks','Area','Checklist','Condition item','Previous finding','Preamble','PSC area','RightShip','Media','Time'],...[...I.findings].sort((a,b)=>a.no-b.no).map(f=>({...f,...jf(f)})).map(f=>[fn(f),f.type,f.rtype,f.cat,f.prio,f.ref,dmy(f.date),dmy(f.due),f.tech,f.crit,f.title,f.text,f.action,f.attCat,f.attRem,zn(f.zone),f.clId,caItems().find(c=>c.id===f.caId)?.comp||'',prevItems().find(p=>p.id===f.prevId)?.ref||'',f.pre,f.psc,f.rs?'Yes':'',S.media.filter(m=>m.findingId===f.id).length,f.ts])])});
   E.push({name:root+'_data/Executive_Summary_draft.txt',data:I.exec||execText()});
@@ -571,6 +584,7 @@ document.addEventListener('click',async e=>{const t=e.target.closest('[data-act]
   if(a==='closeBg'){if(e.target===t){if(S.curFinding){closeFinding(S.curFinding.id)}else closeModal()}return}
   if(t.tagName==='A')e.preventDefault();
   switch(a){
+  case'mand':S.view='mand';S.q='';render();window.scrollTo(0,0);break;case'mandPend':S.mandPend=t.checked;S._keepScroll=true;renderBody();break;
   case'back':{const m=S.view==='zone'?mainOfZone(S.zone):null;S.view=(m&&m.subs.length>1)?'main':'areas';if(S.view==='main')S.main=m.id;S.q='';render();window.scrollTo(0,0);break}
   case'main':{const m=mainById(d.id);if(m.subs.length===1){S.zone=m.subs[0];S.view='zone';S.filter='all';S.showOut=false;S.prevOpen=false}else{S.main=d.id;S.view='main'}S.q='';render();window.scrollTo(0,0);break}
   case'tab':S.view=d.v;S.q='';render();window.scrollTo(0,0);if(d.v==='export')storInfo();break;
