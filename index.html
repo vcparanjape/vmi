@@ -102,7 +102,7 @@ details.pvbox{margin:14px 0;background:#fff;border:1px solid var(--line);border-
 <script>
 'use strict';
 /* ================= constants ================= */
-const APPV='1.4';
+const APPV='1.5';
 const GROUPS=[{t:'My vessels',own:true,v:[['SUTTON','Federal Sutton'],['SWIFT','Federal Swift'],['SPEY','Federal Spey'],['TYNE','Federal Tyne'],['TWEED','Federal Tweed']]},
 {t:"Anatolii's vessels",v:[['SEVERN','Federal Severn'],['SKEENA','Federal Skeena'],['SPRUCE','Federal Spruce'],['SABLE','Federal Sable'],['KIBUNE','Federal Kibune']]},
 {t:"Gaurav's vessels",v:[['SKYE','Federal Skye'],['TAKASE','Federal Takase'],['TRIDENT','Federal Trident'],['TAMBO','Federal Tambo'],['TIBER','Federal Tiber']]}];
@@ -321,7 +321,7 @@ function vSearch(){const t=S.q.toLowerCase().trim().split(/\s+/);const m=s=>t.ev
   return h||`<p class="muted">No match for “${esc(S.q)}”.</p>`}
 
 function vFindings(){const F=[...S.insp.findings].sort((a,b)=>a.no-b.no);
-  let h=`<button class="btn full" data-act="newFinding">+ New finding</button><h2>${F.length} finding(s)</h2>`;
+  let h=`<button class="btn full" data-act="newFinding">+ New finding</button>${F.length?`<button class="btn sec full" style="margin-top:8px" data-act="findingsDoc">📄 Findings report with photos (Word) – share to vessel</button>`:''}<h2>${F.length} finding(s)</h2>`;
   h+=F.map(f=>{const ms=S.media.filter(m=>m.findingId===f.id);const link=[f.clId,f.caId?caItems().find(c=>c.id===f.caId)?.comp:''].filter(Boolean).join(' · ');
    return`<div class="item flag" data-act="editFinding" data-id="${f.id}"><div class="ih"><span class="code">F${f.no}</span><span class="tag">${esc(f.type)}</span>${f.pre?`<span class="tag">${f.pre}</span>`:''}${f.psc?`<span class="pri PSC">PSC ${f.psc}</span>`:''}${f.rs?'<span class="pri P1">RightShip</span>':''}</div>
    <div class="q">${esc(f.title||'(untitled)')}</div><div class="muted">${esc(zoneById(f.zone).name)}${link?' · '+esc(link):''} · ${ms.length} media</div>${mediaThumbs(ms.slice(0,6))}</div>`}).join('');return h}
@@ -482,6 +482,46 @@ async function makeZip(entries,prog){const enc=new TextEncoder();const parts=[],
     off+=30+name.length+data.length}
   const cs=cen.reduce((s,b)=>s+(b.byteLength??b.length),0);const z=new DataView(new ArrayBuffer(22));z.setUint32(0,0x06054b50,true);z.setUint16(8,entries.length,true);z.setUint16(10,entries.length,true);z.setUint32(12,cs,true);z.setUint32(16,off,true);
   return new Blob([...parts,...cen,z.buffer],{type:'application/zip'})}
+
+/* ---------- Findings report (Word) built on the phone ---------- */
+const xe=t=>String(t??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g,'');
+function wRun(t,o={}){return`<w:r><w:rPr>${o.b?'<w:b/>':''}${o.i?'<w:i/>':''}${o.c?`<w:color w:val="${o.c}"/>`:''}<w:sz w:val="${o.sz||20}"/></w:rPr><w:t xml:space="preserve">${xe(t)}</w:t></w:r>`}
+function wPara(runs,o={}){return`<w:p><w:pPr><w:spacing w:after="${o.after??80}"/>${o.jc?`<w:jc w:val="${o.jc}"/>`:''}</w:pPr>${runs}</w:p>`}
+function wText(t,o){return String(t||'').split('\n').map(l=>wPara(wRun(l,o))).join('')}
+function wImg(rid,n,cx,cy){return`<w:p><w:pPr><w:spacing w:after="80"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="${n}" name="Picture ${n}"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${n}" name="img${n}.jpg"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${rid}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`}
+async function shrink(blob,max=1280){const b=await createImageBitmap(blob);const k=Math.min(1,max/Math.max(b.width,b.height));const w=Math.round(b.width*k),h=Math.round(b.height*k);
+  const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(b,0,0,w,h);const out=await new Promise(r=>c.toBlob(r,'image/jpeg',.72));return{blob:out,w,h}}
+async function buildFindingsDocx(){const I=S.insp;const F=[...I.findings].filter(f=>f.type!=='Positive').sort((a,b)=>a.no-b.no);
+  if(!F.length){toast('No findings yet');return null}
+  const b=I.boarding;const dt=new Date();const today=String(dt.getDate()).padStart(2,'0')+'-'+dt.toLocaleString('en-GB',{month:'short'})+'-'+dt.getFullYear();
+  const media=[];let n=0;const W=2700000;const cell=(x,w)=>`<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/></w:tcPr>${x||'<w:p/>'}</w:tc>`;
+  let rows=`<w:tr><w:trPr><w:tblHeader/></w:trPr>${cell(wPara(wRun('Finding',{b:1,sz:22})),5800)}${cell(wPara(wRun('Photo(s)',{b:1,sz:22})),4200)}</w:tr>`;
+  for(const f0 of F){const f={...f0,...jf(f0)};
+    let L=wPara(wRun('F'+String(f.no).padStart(3,'0')+' – '+(f.title||'(no subject)'),{b:1,sz:22}));
+    L+=wPara(wRun([f.cat&&'Category: '+f.cat,'Priority: '+f.prio,'Due: '+dmy(f.due),'Area: '+mainOfZone(f.zone).name+(mainOfZone(f.zone).subs.length>1?' › '+zoneById(f.zone).name:'')].filter(Boolean).join(' · '),{sz:16,c:'555555'}));
+    L+=wText(f.text,{sz:20});
+    if(f.action)L+=wPara(wRun('Suggested action: ',{b:1,sz:20})+wRun(f.action,{sz:20}));
+    let R='';const ms=S.media.filter(m=>m.findingId===f.id&&m.kind==='photo');
+    for(const m of ms){const full=await mediaGet(m.id);if(!full?.blob)continue;try{const im=await shrink(full.blob);n++;media.push({name:`word/media/img${n}.jpg`,data:im.blob});
+      {let cx=W,cy=Math.round(W*im.h/im.w);const H=3240000;if(cy>H){cx=Math.round(cx*H/cy);cy=H}R+=wImg('rIdImg'+n,n,cx,cy)}}catch(e){}}
+    if(!R)R=wPara(wRun('No photo',{i:1,c:'888888'}));
+    const vids=S.media.filter(m=>m.findingId===f.id&&m.kind==='video').length;if(vids)R+=wPara(wRun(vids+' video(s) – shared separately',{sz:16,c:'888888'}));
+    rows+=`<w:tr><w:trPr><w:cantSplit/></w:trPr>${cell(L,5800)}${cell(R,4200)}</w:tr>`}
+  const bd=['top','left','bottom','right','insideH','insideV'].map(k=>`<w:${k} w:val="single" w:sz="4" w:color="999999"/>`).join('');
+  const head=wPara(wRun('Vessel Manager Inspection – Findings',{b:1,sz:32}))+wPara(wRun(`${I.vessel}${b.port?' · '+b.port:''} · ${today}`,{sz:22}))+
+    wPara(wRun(`${F.length} finding(s). Master is requested to commence corrective actions and send closing evidence (photos / records) against each finding number. The formal report will follow in Jibe.`,{sz:20}))+
+    wPara(wRun('Vaibhav Paranjape, Vessel Manager',{i:1,sz:18,c:'555555'}),{after:200});
+  const doc=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><w:body>${head}<w:tbl><w:tblPr><w:tblW w:w="10000" w:type="dxa"/><w:tblBorders>${bd}</w:tblBorders><w:tblLayout w:type="fixed"/><w:tblCellMar><w:top w:w="60" w:type="dxa"/><w:left w:w="100" w:type="dxa"/><w:bottom w:w="60" w:type="dxa"/><w:right w:w="100" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid><w:gridCol w:w="5800"/><w:gridCol w:w="4200"/></w:tblGrid>${rows}</w:tbl><w:p/><w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="900" w:right="900" w:bottom="900" w:left="900" w:header="400" w:footer="400" w:gutter="0"/></w:sectPr></w:body></w:document>`;
+  const rels=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${media.map((m,i)=>`<Relationship Id="rIdImg${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/img${i+1}.jpg"/>`).join('')}</Relationships>`;
+  const E=[{name:'[Content_Types].xml',data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="jpg" ContentType="image/jpeg"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`},
+   {name:'_rels/.rels',data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`},
+   {name:'word/document.xml',data:doc},{name:'word/_rels/document.xml.rels',data:rels},...media];
+  const z=await makeZip(E);const nm=`${safe(I.vessel)} - VM Inspection Findings - ${today}.docx`;
+  return new File([z],nm,{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'})}
+async function findingsReport(){toast('Building findings report…');try{const f=await buildFindingsDocx();if(!f)return;S.fdoc=f;
+  if(navigator.canShare&&navigator.canShare({files:[f]})){try{await navigator.share({files:[f],title:f.name});return}catch(e){if(e.name==='AbortError')return}}
+  const a=document.createElement('a');a.href=URL.createObjectURL(f);a.download=f.name;document.body.appendChild(a);a.click();a.remove()}catch(e){toast('Failed: '+e.message)}}
+
 const safe=s=>String(s||'').replace(/[\\/:*?"<>|]+/g,'-').replace(/\s+/g,' ').trim().slice(0,70);
 const csv=rows=>rows.map(r=>r.map(v=>{v=String(v??'');return/[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}).join(',')).join('\r\n');
 function extOf(m){const t=m.mime||'';return t.includes('jpeg')?'jpg':t.includes('png')?'png':t.includes('heic')?'heic':t.includes('quicktime')?'mov':t.includes('mp4')?(m.kind==='voice'?'m4a':'mp4'):t.includes('webm')?'webm':t.includes('aac')?'aac':m.kind==='photo'?'jpg':'bin'}
@@ -554,7 +594,7 @@ document.addEventListener('click',async e=>{const t=e.target.closest('[data-act]
   case'jibeReq':S.insp.jibeUpload=S.insp.jibeUpload?null:nowISO();await saveNow();S._keepScroll=true;renderBody();toast(S.insp.jibeUpload?'Upload requested – now sync':'Request cancelled');break;
   case'reopen':S.insp.status='In progress';S.insp.completedAt=null;save();renderBody();break;
   case'backupPhotos':{const L=S.media.filter(m=>m.kind==='photo'&&!m.backedUp).slice(0,40);if(!L.length){toast('All photos already copied');break}await shareToPhotos(L);renderBody();break}
-  case'buildZip':buildZip();break;case'shareZip':shareZip();break;case'markSynced':markSynced();break;
+  case'buildZip':buildZip();break;case'findingsDoc':findingsReport();break;case'shareZip':shareZip();break;case'markSynced':markSynced();break;
   }});
 function closeFinding(id){const f=S.insp.findings.find(x=>x.id===id);if(f){delete f.fresh;if(!f.title&&!f.text&&!S.media.some(m=>m.findingId===id)){S.insp.findings=S.insp.findings.filter(x=>x.id!==id)}}
   save();S.curFinding=null;closeModal();S._keepScroll=true;render()}
