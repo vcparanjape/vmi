@@ -102,7 +102,7 @@ details.pvbox{margin:14px 0;background:#fff;border:1px solid var(--line);border-
 <script>
 'use strict';
 /* ================= constants ================= */
-const APPV='1.5.1';
+const APPV='1.5.2';
 const GROUPS=[{t:'My vessels',own:true,v:[['SUTTON','Federal Sutton'],['SWIFT','Federal Swift'],['SPEY','Federal Spey'],['TYNE','Federal Tyne'],['TWEED','Federal Tweed']]},
 {t:"Anatolii's vessels",v:[['SEVERN','Federal Severn'],['SKEENA','Federal Skeena'],['SPRUCE','Federal Spruce'],['SABLE','Federal Sable'],['KIBUNE','Federal Kibune']]},
 {t:"Gaurav's vessels",v:[['SKYE','Federal Skye'],['TAKASE','Federal Takase'],['TRIDENT','Federal Trident'],['TAMBO','Federal Tambo'],['TIBER','Federal Tiber']]}];
@@ -469,17 +469,18 @@ async function loadThumbs(){for(const el of document.querySelectorAll('[data-thu
 
 /* ================= ZIP (store) ================= */
 const CRC=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
-function crc32(u8){let c=0xFFFFFFFF;for(let i=0;i<u8.length;i++)c=CRC[(c^u8[i])&255]^(c>>>8);return(c^0xFFFFFFFF)>>>0}
+function crc32(u8,c0){let c=c0===undefined?0xFFFFFFFF:c0;for(let i=0;i<u8.length;i++)c=CRC[(c^u8[i])&255]^(c>>>8);return c0===undefined?(c^0xFFFFFFFF)>>>0:c}
+async function crc32Blob(b){let c=0xFFFFFFFF;const CH=4194304;for(let o=0;o<b.size;o+=CH){c=crc32(new Uint8Array(await b.slice(o,o+CH).arrayBuffer()),c)}return(c^0xFFFFFFFF)>>>0}
 async function makeZip(entries,prog){const enc=new TextEncoder();const parts=[],cen=[];let off=0;const d=new Date();
   const dt=((d.getHours()<<11)|(d.getMinutes()<<5)|(d.getSeconds()>>1))&0xFFFF,dd=(((d.getFullYear()-1980)<<9)|((d.getMonth()+1)<<5)|d.getDate())&0xFFFF;
   for(let i=0;i<entries.length;i++){const e=entries[i];prog&&prog(i,entries.length);
-    const data=typeof e.data==='string'?enc.encode(e.data):new Uint8Array(await e.data.arrayBuffer());const name=enc.encode(e.name);const crc=crc32(data);
+    const isS=typeof e.data==='string';const data=isS?enc.encode(e.data):e.data;const len=isS?data.length:data.size;const name=enc.encode(e.name);const crc=isS?crc32(data):await crc32Blob(data);
     const h=new DataView(new ArrayBuffer(30));h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint16(6,0x0800,true);h.setUint16(8,0,true);h.setUint16(10,dt,true);h.setUint16(12,dd,true);
-    h.setUint32(14,crc,true);h.setUint32(18,data.length,true);h.setUint32(22,data.length,true);h.setUint16(26,name.length,true);h.setUint16(28,0,true);
+    h.setUint32(14,crc,true);h.setUint32(18,len,true);h.setUint32(22,len,true);h.setUint16(26,name.length,true);h.setUint16(28,0,true);
     parts.push(h.buffer,name,data);
     const c=new DataView(new ArrayBuffer(46));c.setUint32(0,0x02014b50,true);c.setUint16(4,20,true);c.setUint16(6,20,true);c.setUint16(8,0x0800,true);c.setUint16(10,0,true);c.setUint16(12,dt,true);c.setUint16(14,dd,true);
-    c.setUint32(16,crc,true);c.setUint32(20,data.length,true);c.setUint32(24,data.length,true);c.setUint16(28,name.length,true);c.setUint32(42,off,true);cen.push(c.buffer,name);
-    off+=30+name.length+data.length}
+    c.setUint32(16,crc,true);c.setUint32(20,len,true);c.setUint32(24,len,true);c.setUint16(28,name.length,true);c.setUint32(42,off,true);cen.push(c.buffer,name);
+    off+=30+name.length+len}
   const cs=cen.reduce((s,b)=>s+(b.byteLength??b.length),0);const z=new DataView(new ArrayBuffer(22));z.setUint32(0,0x06054b50,true);z.setUint16(8,entries.length,true);z.setUint16(10,entries.length,true);z.setUint32(12,cs,true);z.setUint32(16,off,true);
   return new Blob([...parts,...cen,z.buffer],{type:'application/zip'})}
 
@@ -548,12 +549,21 @@ async function buildZip(){const I=S.insp;const onlyNew=$('#exNew').checked,vid=$
   E.push({name:root+'_data/Findings.csv',data:csv([['No','Type','Report Type','Category','Priority','Reference','Date','Due Date','Technical Defect','Failure in Critical Machinery','Subject','Description','Suggested Action','Attachment Category','Attachment Remarks','Area','Checklist','Condition item','Previous finding','Preamble','PSC area','RightShip','Media','Time'],...[...I.findings].sort((a,b)=>a.no-b.no).map(f=>({...f,...jf(f)})).map(f=>[fn(f),f.type,f.rtype,f.cat,f.prio,f.ref,dmy(f.date),dmy(f.due),f.tech,f.crit,f.title,f.text,f.action,f.attCat,f.attRem,zn(f.zone),f.clId,caItems().find(c=>c.id===f.caId)?.comp||'',prevItems().find(p=>p.id===f.prevId)?.ref||'',f.pre,f.psc,f.rs?'Yes':'',S.media.filter(m=>m.findingId===f.id).length,f.ts])])});
   E.push({name:root+'_data/Executive_Summary_draft.txt',data:I.exec||execText()});
   E.push({name:root+'_data/Preamble_draft.txt',data:PREAMBLE.map(([c,n,sb])=>c+' - '+n+'\n'+sb.map((x,i)=>{const id=c+String(i+1).padStart(2,'0');return String(i+1).padStart(2,'0')+' - '+x+'\n'+(I.preamble[id]||'')}).join('\n')).join('\n\n')+'\n\nDates\n'+DATE_KEYS.map(k=>k+': '+(I.dates[k]||'NA')).join('\n')});
-  const ms=S.media.filter(m=>(!onlyNew||!I.lastExport||m.ts>I.lastExport)&&(vid||m.kind!=='video'));
-  for(const m of ms){const full=await mediaGet(m.id);if(!full)continue;E.push({name:root+mediaPath(m),data:full.blob})}
-  const zip=await makeZip(E,(i,n)=>{out.innerHTML=`<p class="muted">Packing ${i+1}/${n}…</p>`});
-  const stamp=new Date().toISOString().slice(0,16).replace(/[-:T]/g,'');const name=`VMI_${I.vesselId}_${stamp}.zip`;S.zip=new File([zip],name,{type:'application/zip'});S.zipStamp=nowISO();
-  const url=URL.createObjectURL(zip);out.innerHTML=`<p><b>${name}</b> · ${(zip.size/1048576).toFixed(1)} MB · ${ms.length} media</p><button class="btn grn full" data-act="shareZip">Share → Save to Files (OneDrive)</button><a class="btn sec full" style="text-align:center" href="${url}" download="${name}">Download instead</a><button class="btn sec full" data-act="markSynced">Mark as synced</button>`}
-async function shareZip(){try{if(navigator.canShare&&navigator.canShare({files:[S.zip]})){await navigator.share({files:[S.zip],title:S.zip.name});markSynced()}else toast('Use Download instead')}catch(e){if(e.name!=='AbortError')toast(e.message)}}
+  const ms=S.media.filter(m=>(!onlyNew||!I.lastExport||m.ts>I.lastExport)&&(vid||m.kind!=='video')).sort((a,b)=>(a.ts||'').localeCompare(b.ts||''));
+  const LIM=350*1048576;const groups=[[]];let acc=0;
+  for(const m of ms){const sz=m.size||0;if(acc+sz>LIM&&groups[groups.length-1].length){groups.push([]);acc=0}groups[groups.length-1].push(m);acc+=sz}
+  const stamp=new Date().toISOString().slice(0,16).replace(/[-:T]/g,'');S.zips=[];S.zipShared=new Set();S.zipStamp=nowISO();
+  for(let g=0;g<groups.length;g++){const P=[...E];for(const m of groups[g]){const full=await mediaGet(m.id);if(full?.blob)P.push({name:root+mediaPath(m),data:full.blob})}
+    const zip=await makeZip(P,(i,n)=>{out.innerHTML=`<p class="muted">Packing part ${g+1}/${groups.length}: ${i+1}/${n}…</p>`});
+    const name=`VMI_${I.vesselId}_${stamp}${groups.length>1?'_part'+(g+1)+'of'+groups.length:''}.zip`;S.zips.push({file:new File([zip],name,{type:'application/zip'}),n:groups[g].length})}
+  S.zip=S.zips[0].file;renderZips()}
+function renderZips(){const out=$('#zipOut');if(!out||!S.zips)return;
+  out.innerHTML=(S.zips.length>1?`<p class="muted">Split into ${S.zips.length} parts to stay within iPhone memory. Save every part to the same OneDrive folder.</p>`:'')+
+  S.zips.map((z,i)=>{const u=z.url||(z.url=URL.createObjectURL(z.file));return`<div class="card" style="margin:8px 0"><b>${esc(z.file.name)}</b><br><span class="muted">${(z.file.size/1048576).toFixed(1)} MB · ${z.n} media${S.zipShared.has(i)?' · ✅ shared':''}</span>
+  <button class="btn grn full" data-act="shareZip" data-i="${i}">Share → Save to Files (OneDrive)</button><a class="btn sec full" style="display:block;text-align:center;text-decoration:none;margin-top:6px" href="${u}" download="${esc(z.file.name)}">Download instead</a></div>`}).join('')+
+  `<button class="btn sec full" data-act="markSynced">Mark as synced (after all parts are saved)</button>`}
+async function shareZip(i){i=+i||0;const z=S.zips?.[i];if(!z)return;try{if(navigator.canShare&&navigator.canShare({files:[z.file]})){await navigator.share({files:[z.file]});S.zipShared.add(i);
+  if(S.zipShared.size===S.zips.length)markSynced();else renderZips()}else toast('Use Download instead')}catch(e){if(e.name!=='AbortError')toast(e.message)}}
 function markSynced(){S.insp.lastExport=S.zipStamp||nowISO();save();toast('Marked as synced');setTimeout(renderBody,300)}
 
 /* ================= events ================= */
@@ -598,7 +608,7 @@ document.addEventListener('click',async e=>{const t=e.target.closest('[data-act]
   case'jibeReq':S.insp.jibeUpload=S.insp.jibeUpload?null:nowISO();await saveNow();S._keepScroll=true;renderBody();toast(S.insp.jibeUpload?'Upload requested – now sync':'Request cancelled');break;
   case'reopen':S.insp.status='In progress';S.insp.completedAt=null;save();renderBody();break;
   case'backupPhotos':{const L=S.media.filter(m=>m.kind==='photo'&&!m.backedUp).slice(0,40);if(!L.length){toast('All photos already copied');break}await shareToPhotos(L);renderBody();break}
-  case'buildZip':buildZip();break;case'findingsDoc':findingsReport();break;case'fdocShare':fdocShare();break;case'shareZip':shareZip();break;case'markSynced':markSynced();break;
+  case'buildZip':buildZip();break;case'findingsDoc':findingsReport();break;case'fdocShare':fdocShare();break;case'shareZip':shareZip(d.i);break;case'markSynced':markSynced();break;
   }});
 function closeFinding(id){const f=S.insp.findings.find(x=>x.id===id);if(f){delete f.fresh;if(!f.title&&!f.text&&!S.media.some(m=>m.findingId===id)){S.insp.findings=S.insp.findings.filter(x=>x.id!==id)}}
   save();S.curFinding=null;closeModal();S._keepScroll=true;render()}
