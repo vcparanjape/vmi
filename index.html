@@ -84,6 +84,8 @@ details.guid div{white-space:pre-wrap;font-size:13px;margin-top:6px}
 .prow .nm{flex:1;font-size:14px}.prow select{width:84px;padding:6px}
 pre.out{white-space:pre-wrap;background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px;font:13px/1.45 ui-monospace,Menlo,monospace}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(90px + env(safe-area-inset-bottom));background:#222;color:#fff;padding:9px 16px;border-radius:20px;z-index:60;font-size:14px}
+.filt.hf{margin:8px 0 0}.filt.hf button{background:rgba(255,255,255,.14);color:#fff;border-color:rgba(255,255,255,.25);padding:6px 2px;font-size:12px}.filt.hf button.on{background:#fff;color:var(--navy)}
+details.pvbox{margin:14px 0;background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 10px}details.pvbox>summary{font-weight:700;font-size:15px;padding:4px 0}
 .filt{display:flex;gap:6px;margin:6px 0 10px}.filt button{flex:1;border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px;font-size:13px}.filt button.on{background:var(--blue);color:#fff;border-color:var(--blue)}
 .viewer img,.viewer video{width:100%;border-radius:10px;background:#000}
 </style>
@@ -100,7 +102,7 @@ pre.out{white-space:pre-wrap;background:#fff;border:1px solid var(--line);border
 <script>
 'use strict';
 /* ================= constants ================= */
-const APPV='1.3';
+const APPV='1.4';
 const GROUPS=[{t:'My vessels',own:true,v:[['SUTTON','Federal Sutton'],['SWIFT','Federal Swift'],['SPEY','Federal Spey'],['TYNE','Federal Tyne'],['TWEED','Federal Tweed']]},
 {t:"Anatolii's vessels",v:[['SEVERN','Federal Severn'],['SKEENA','Federal Skeena'],['SPRUCE','Federal Spruce'],['SABLE','Federal Sable'],['KIBUNE','Federal Kibune']]},
 {t:"Gaurav's vessels",v:[['SKYE','Federal Skye'],['TAKASE','Federal Takase'],['TRIDENT','Federal Trident'],['TAMBO','Federal Tambo'],['TIBER','Federal Tiber']]}];
@@ -190,14 +192,14 @@ function newInspection(vid,vname){const id=vid+'-'+new Date().toISOString().slic
 /* ================= rendering ================= */
 function header(title,opts={}){const h=$('#hdr');
   h.innerHTML=`<div class="row">${opts.back?`<button data-act="back">‹ Back</button>`:''}<h1>${esc(title)}</h1>${opts.right||''}</div>`+
-  (opts.search?`<input class="search" id="q" type="search" placeholder="Search area, machinery, checklist…" value="${esc(S.q)}" autocomplete="off">`:'');
+  (opts.search?`<input class="search" id="q" type="search" placeholder="Search area, machinery, checklist…" value="${esc(S.q)}" autocomplete="off">`:'')+(opts.extra||'');
   const q=$('#q');if(q)q.oninput=e=>{S.q=e.target.value;renderBody()}}
 function tabs(){const t=$('#tabs');if(!S.insp||S.view==='home'){t.hidden=true;return}t.hidden=false;
   const T=[['boarding','⚓','Boarding'],['plan','🗓','Plan'],['areas','🧭','Areas'],['findings','⚠️','Findings'],['report','📝','Report'],['export','☁️','Sync']];
   t.innerHTML=T.map(([v,i,l])=>`<button data-act="tab" data-v="${v}" class="${S.view===v||(v==='areas'&&['zone','main'].includes(S.view))?'on':''}"><b>${i}</b>${l}</button>`).join('')}
 function render(){tabs();const v=S.view;
   if(v==='home'){header('VM Inspection',{right:`<button data-act="settings">⚙︎</button>`})}
-  else{const nf=S.insp.findings.length;header(S.insp.vessel+(S.view==='zone'?' · '+mainOfZone(S.zone).name:S.view==='main'?' · '+mainById(S.main).name:''),{back:['zone','main'].includes(S.view),search:['areas','zone','main'].includes(v),right:`<span class="pill">${nf} F</span><button data-act="home">⌂</button>`})}
+  else{const nf=S.insp.findings.length;header(S.insp.vessel+(S.view==='zone'?' · '+mainOfZone(S.zone).name:S.view==='main'?' · '+mainById(S.main).name:''),{back:['zone','main'].includes(S.view),search:['areas','zone','main'].includes(v),extra:v==='zone'?zoneFilt():'',right:`<span class="pill">${nf} F</span><button data-act="home">⌂</button>`})}
   renderBody()}
 function renderBody(){const a=$('#app');const y=window.scrollY;
   const fn={main:vMain,home:vHome,boarding:vBoarding,plan:vPlan,areas:vAreas,zone:vZone,findings:vFindings,report:vReport,export:vExport}[S.view];
@@ -292,17 +294,21 @@ function prevCard(p){const r=S.insp.prev?.[p.id]||{};
   <div class="q">${esc(p.text)}</div>${p.action?`<details class="guid"><summary>Action taken / reported closure</summary><div>${esc(p.action)}</div></details>`:''}
   <div class="seg" data-k="prev" data-id="${p.id}">${['Closed','Open','Repeat','NA'].map(a=>`<button data-act="ans" data-v="${a}" class="${r.a===a?'on':''}">${a}</button>`).join('')}</div>
   <textarea data-rem="prev:${p.id}" placeholder="Verification remarks">${esc(r.rem||'')}</textarea>${capRow({zone:p.zone,prev:p.id})}${mediaThumbs(S.media.filter(x=>x.prevId===p.id))}${S.insp.findings.filter(f=>f.prevId===p.id).map(f=>`<button class="chip" data-act="editFinding" data-id="${f.id}">⚠️ F${f.no} ${esc(f.title||'(untitled)')}</button>`).join('')}</div>`}
-function vZone(){if(S.q.trim())return vSearch();const z=zoneById(S.zone);const f=S.filter;const PV=prevItems().filter(p=>p.zone===z.id);
+function zoneFilt(){if(S.q.trim())return'';const f=S.filter;const n=prevItems().filter(p=>p.zone===S.zone).length;
+  return`<div class="filt hf">${[['all','All'],['cl','Checklist'],['ca','Condition'],['open','Not done'],['prev','Previous'+(n?' ('+n+')':'')]].map(([k,l])=>`<button data-act="filt" data-v="${k}" class="${f===k?'on':''}">${l}</button>`).join('')}</div>`}
+function vZone(){if(S.q.trim())return vSearch();const z=zoneById(S.zone);const f=S.filter;let PV=prevItems().filter(p=>p.zone===z.id);
   let cl=clItems().filter(i=>i.zones.includes(z.id)),ca=caItems().filter(i=>i.zones.includes(z.id));
   const hidden=cl.filter(i=>!inScope('cl',i)).length+ca.filter(i=>!inScope('ca',i)).length;
   if(!S.showOut){cl=cl.filter(i=>inScope('cl',i));ca=ca.filter(i=>inScope('ca',i))}
   const gen=S.media.filter(m=>m.zone===z.id&&!m.clId&&!m.caId&&!m.prevId&&!m.findingId);
-  let h=`<div class="card"><b>${esc(z.name)}</b><div class="muted">${cl.length} checklist · ${ca.length} condition items${hidden?` · <a href="#" data-act="toggleOut">${S.showOut?'hide':'show'} ${hidden} out-of-scope</a>`:''}</div>
-  <h3>General photos / findings for this area</h3>${capRow({zone:z.id})}${mediaThumbs(gen)}${S.insp.findings.filter(x=>x.zone===z.id&&!x.clId&&!x.caId).map(x=>`<button class="chip" data-act="editFinding" data-id="${x.id}">⚠️ F${x.no} ${esc(x.title||'(untitled)')}</button>`).join('')}</div>
-  ${PV.length?`<h2>Previous findings to verify (${PV.length})</h2>`+PV.map(prevCard).join(''):''}<div class="filt">${[['all','All'],['cl','Checklist'],['ca','Condition'],['open','Not done']].map(([k,l])=>`<button data-act="filt" data-v="${k}" class="${f===k?'on':''}">${l}</button>`).join('')}</div>`;
+  let h=`<div class="card"><b>${esc(z.name)}</b><div class="muted">${cl.length} checklist · ${ca.length} condition items · ${PV.length} previous findings${hidden?` · <a href="#" data-act="toggleOut">${S.showOut?'hide':'show'} ${hidden} out-of-scope</a>`:''}</div>
+  <h3>General photos / findings for this area</h3>${capRow({zone:z.id})}${mediaThumbs(gen)}${S.insp.findings.filter(x=>x.zone===z.id&&!x.clId&&!x.caId).map(x=>`<button class="chip" data-act="editFinding" data-id="${x.id}">⚠️ F${x.no} ${esc(x.title||'(untitled)')}</button>`).join('')}</div>`;
   const nd=(k,i)=>!S.insp[k][i.id]?.a;
+  if(f==='prev')return h+(PV.length?`<h2>Previous findings to verify (${PV.length})</h2>`+PV.map(prevCard).join(''):'<p class="muted">No previous findings for this area.</p>');
   if(f!=='ca'){const L=cl.filter(i=>f!=='open'||nd('cl',i));if(L.length)h+=`<h2>Jibe checklist</h2>`+L.map(i=>clCard(i,z.id)).join('')}
   if(f!=='cl'){const L=ca.filter(i=>f!=='open'||nd('ca',i));if(L.length)h+=`<h2>Condition assessment</h2>`+L.map(i=>caCard(i,z.id)).join('')}
+  if(f==='all'||f==='open'){if(f==='open')PV=PV.filter(p=>!S.insp.prev?.[p.id]?.a);const dn=PV.filter(p=>S.insp.prev?.[p.id]?.a).length;
+    if(PV.length)h+=`<details class="pvbox" id="prevBox" ${S.prevOpen?'open':''}><summary>Previous findings to verify (${f==='open'?PV.length+' not done':dn+'/'+PV.length+' checked'})</summary>${PV.map(prevCard).join('')}</details>`}
   return h}
 function vSearch(){const t=S.q.toLowerCase().trim().split(/\s+/);const m=s=>t.every(w=>s.toLowerCase().includes(w));
   const Z=zones().filter(z=>m(z.name+' '+z.kw+' '+z.id+' '+mainOfZone(z.id).name));const P=prevItems().filter(p=>m(p.text+' '+p.src+' '+(p.ref||'')));
@@ -352,8 +358,11 @@ function vExport(){const I=S.insp;const ms=S.media;const nw=ms.filter(m=>!I.last
 function modal(html){$('#modal').innerHTML=`<div class="modal" data-act="closeBg"><div class="sheet">${html}</div></div>`}
 function closeModal(){$('#modal').innerHTML='';stopRec(true)}
 function nextNo(){return S.insp.findings.reduce((m,f)=>Math.max(m,f.no),0)+1}
+const ymd=d=>d.toISOString().slice(0,10);const dmy=v=>v?v.slice(8,10)+'-'+v.slice(5,7)+'-'+v.slice(0,4):'';
+function jf(f){const d=new Date(f.ts||Date.now());const due=new Date(d);due.setDate(due.getDate()+30);
+  return{rtype:f.rtype??'ISM',cat:f.cat??'',prio:f.prio??'Normal',ref:f.ref??'',date:f.date||ymd(d),due:f.due||ymd(due),tech:f.tech||'No',crit:f.crit||'No',action:f.action??'',attCat:f.attCat??'',attRem:f.attRem??''}}
 function createFinding(ctx){const cl=ctx.cl?clItems().find(i=>i.id===ctx.cl):null;
-  const f={id:'F'+uid(),no:nextNo(),title:'',text:'',type:'Finding',zone:ctx.zone||(cl?cl.zones[0]:'GEN'),clId:ctx.cl||'',caId:ctx.ca||'',prevId:ctx.prev||'',pre:cl?.pre||'',psc:'',rs:false,ts:nowISO(),fresh:true};
+  const f={id:'F'+uid(),no:nextNo(),title:'',text:'',type:'Observation',zone:ctx.zone||(cl?cl.zones[0]:'GEN'),clId:ctx.cl||'',caId:ctx.ca||'',prevId:ctx.prev||'',pre:cl?.pre||'',psc:'',rs:false,ts:nowISO(),fresh:true};Object.assign(f,jf(f));
   S.insp.findings.push(f);save();return f}
 function findingSheet(f){const zOpts=zones().map(z=>`<option value="${z.id}" ${f.zone===z.id?'selected':''}>${esc(z.name)}</option>`).join('');
   const preO=`<option value="">—</option>`+PRE_LIST.map(p=>`<option value="${p.id}" ${f.pre===p.id?'selected':''}>${p.cat} ${p.id.slice(1)} – ${esc(p.name)}</option>`).join('');
@@ -363,11 +372,23 @@ function findingSheet(f){const zOpts=zones().map(z=>`<option value="${z.id}" ${f
   modal(`<div class="top"><h2>Finding F${f.no}</h2><button class="btn sec" data-act="closeFinding" data-id="${f.id}">Done</button></div>
   ${capRow({finding:f.id,zone:f.zone,cl:f.clId,ca:f.caId}).replace(/<button class="fd"[^]*?<\/button>/,'<button data-act="libPick" data-finding="'+f.id+'"><b>🖼</b>Library</button>')}
   ${mediaThumbs(ms)}
-  <label>Title</label><input data-fb="title" value="${esc(f.title)}" placeholder="e.g. Steering gear room mushroom vent – closing device seized">
-  <label>Description (tap 🎤 on keyboard to dictate)</label><textarea data-fb="text" style="min-height:110px">${esc(f.text)}</textarea>
-  <div class="two"><div><label>Type</label><select data-fb="type">${['Finding','Observation','Non-conformity','Positive'].map(t=>`<option ${f.type===t?'selected':''}>${t}</option>`).join('')}</select></div>
+  ${(()=>{Object.assign(f,jf(f));const cats=[...new Set(Object.values(S.pack?.prev||{}).flat().map(p=>p.category).filter(Boolean))].sort();
+   const sel=(k,L)=>`<select data-fb="${k}">${L.map(o=>`<option ${f[k]===o?'selected':''}>${o}</option>`).join('')}</select>`;
+   return`<h3 style="margin:12px 0 2px">Jibe – Add Observation</h3>
+  <div class="two"><div><label>Report Type</label><input data-fb="rtype" list="dlRt" value="${esc(f.rtype)}"></div><div><label>Category *</label><input data-fb="cat" list="dlCat" value="${esc(f.cat)}" placeholder="Select / type"></div></div>
+  <datalist id="dlRt">${['ISM','ISPS','MLC','Technical','Environmental','Others'].map(o=>`<option value="${o}">`).join('')}</datalist><datalist id="dlCat">${cats.map(o=>`<option value="${esc(o)}">`).join('')}</datalist>
+  <div class="two"><div><label>Priority *</label>${sel('prio',['Normal','High','Low'])}</div><div><label>Reference</label><input data-fb="ref" value="${esc(f.ref)}"></div></div>
+  <div class="two"><div><label>Date *</label><input type="date" data-fb="date" value="${f.date}"></div><div><label>Due Date *</label><input type="date" data-fb="due" value="${f.due}"></div></div>
+  <div class="two"><div><label>Technical Defect</label>${sel('tech',['No','Yes'])}</div><div><label>Failure in Critical Machinery</label>${sel('crit',['No','Yes'])}</div></div>
+  <label>Subject *</label><input data-fb="title" value="${esc(f.title)}" placeholder="e.g. Steering gear room mushroom vent – closing device seized">
+  <label>Description * (tap 🎤 on keyboard to dictate)</label><textarea data-fb="text" style="min-height:110px">${esc(f.text)}</textarea>
+  <label>Suggested Action *</label><textarea data-fb="action" style="min-height:70px">${esc(f.action)}</textarea>
+  <label>Attachment Category</label><input data-fb="attCat" value="${esc(f.attCat)}" placeholder="Select in Jibe (e.g. Photo)">
+  <label>Attachment Remarks</label><textarea data-fb="attRem" style="min-height:50px">${esc(f.attRem)}</textarea>
+  <h3 style="margin:14px 0 2px">App links</h3>
+  <div class="two"><div><label>Finding type</label><select data-fb="type">${['Observation','Non-conformity','Finding','Positive'].map(t=>`<option ${f.type===t?'selected':''}>${t}</option>`).join('')}</select></div>
   <div><label>PSC deficiency area</label><select data-fb="psc">${pscO}</select></div></div>
-  <label><input type="checkbox" style="width:auto" data-fbc="rs" ${f.rs?'checked':''}> RightShip relevant</label>
+  <label><input type="checkbox" style="width:auto" data-fbc="rs" ${f.rs?'checked':''}> RightShip relevant</label>`})()}
   <label>Area</label><select data-fb="zone">${zOpts}</select>
   <label>Linked checklist item</label><select data-fb="clId"><option value="">—</option>${zcl.map(i=>`<option value="${i.id}" ${f.clId===i.id?'selected':''}>${i.id} ${esc(i.q.slice(0,60))}</option>`).join('')}</select>
   <label>Linked condition item</label><select data-fb="caId"><option value="">—</option>${zca.map(i=>`<option value="${i.id}" ${f.caId===i.id?'selected':''}>${esc(i.comp)}</option>`).join('')}</select>
@@ -476,11 +497,11 @@ function mediaPath(m){const I=S.insp;const fn=f=>'F'+String(f.no).padStart(3,'0'
 async function buildZip(){const I=S.insp;const onlyNew=$('#exNew').checked,vid=$('#exVid').checked;const out=$('#zipOut');out.innerHTML='<p class="muted">Building…</p>';
   await saveNow();const root=`${OWN.has(I.vesselId)?'My vessels':'Other vessels'} - ${safe(I.vessel.replace(/^Federal\s+/,''))}/${inspFolderName(I)}/`;const E=[];
   const zn=z=>mainOfZone(z).name+' › '+zoneById(z).name;const fn=f=>'F'+String(f.no).padStart(3,'0');
-  E.push({name:root+'_data/inspection.json',data:JSON.stringify({...I,appv:APPV,folder:inspFolderName(I),previousFindings:prevItems(),zoneNames:Object.fromEntries(zones().map(z=>[z.id,mainOfZone(z.id).name+(mainOfZone(z.id).subs.length>1?' › '+z.name:'')])),mediaIndex:S.media.map(m=>({...m,file:mediaPath(m)}))},null,1)});
+  E.push({name:root+'_data/inspection.json',data:JSON.stringify({...I,findings:I.findings.map(f=>({...f,...jf(f)})),appv:APPV,folder:inspFolderName(I),previousFindings:prevItems(),zoneNames:Object.fromEntries(zones().map(z=>[z.id,mainOfZone(z.id).name+(mainOfZone(z.id).subs.length>1?' › '+z.name:'')])),mediaIndex:S.media.map(m=>({...m,file:mediaPath(m)}))},null,1)});
   E.push({name:root+'_data/Checklist.csv',data:csv([['Question Number','Question','Answer','Remarks','Group','Priority','Area(s)','Findings'],...clItems().map(i=>[i.id,i.q,I.cl[i.id]?.a||'',I.cl[i.id]?.rem||'',i.group,i.pri,i.zones.map(zn).join(' | '),I.findings.filter(f=>f.clId===i.id).map(fn).join(' ')])])});
   E.push({name:root+'_data/Condition_Assessment.csv',data:csv([['Operational Category','Component','Answer','Remarks','Priority','Area(s)','Findings'],...caItems().map(i=>[i.cat,i.comp,I.ca[i.id]?.a||'',I.ca[i.id]?.rem||'',i.pri,i.zones.map(zn).join(' | '),I.findings.filter(f=>f.caId===i.id).map(fn).join(' ')])])});
   E.push({name:root+'_data/Previous_Findings.csv',data:csv([['Source','Ref','Date','Finding','Area','Status now','Remarks'],...prevItems().map(p=>[p.src,p.ref,p.date,p.text,zn(p.zone),I.prev?.[p.id]?.a||'',I.prev?.[p.id]?.rem||''])])});
-  E.push({name:root+'_data/Findings.csv',data:csv([['No','Type','Title','Description','Area','Checklist','Condition item','Previous finding','Preamble','PSC area','RightShip','Media','Time'],...[...I.findings].sort((a,b)=>a.no-b.no).map(f=>[fn(f),f.type,f.title,f.text,zn(f.zone),f.clId,caItems().find(c=>c.id===f.caId)?.comp||'',prevItems().find(p=>p.id===f.prevId)?.ref||'',f.pre,f.psc,f.rs?'Yes':'',S.media.filter(m=>m.findingId===f.id).length,f.ts])])});
+  E.push({name:root+'_data/Findings.csv',data:csv([['No','Type','Report Type','Category','Priority','Reference','Date','Due Date','Technical Defect','Failure in Critical Machinery','Subject','Description','Suggested Action','Attachment Category','Attachment Remarks','Area','Checklist','Condition item','Previous finding','Preamble','PSC area','RightShip','Media','Time'],...[...I.findings].sort((a,b)=>a.no-b.no).map(f=>({...f,...jf(f)})).map(f=>[fn(f),f.type,f.rtype,f.cat,f.prio,f.ref,dmy(f.date),dmy(f.due),f.tech,f.crit,f.title,f.text,f.action,f.attCat,f.attRem,zn(f.zone),f.clId,caItems().find(c=>c.id===f.caId)?.comp||'',prevItems().find(p=>p.id===f.prevId)?.ref||'',f.pre,f.psc,f.rs?'Yes':'',S.media.filter(m=>m.findingId===f.id).length,f.ts])])});
   E.push({name:root+'_data/Executive_Summary_draft.txt',data:I.exec||execText()});
   E.push({name:root+'_data/Preamble_draft.txt',data:PREAMBLE.map(([c,n,sb])=>c+' - '+n+'\n'+sb.map((x,i)=>{const id=c+String(i+1).padStart(2,'0');return String(i+1).padStart(2,'0')+' - '+x+'\n'+(I.preamble[id]||'')}).join('\n')).join('\n\n')+'\n\nDates\n'+DATE_KEYS.map(k=>k+': '+(I.dates[k]||'NA')).join('\n')});
   const ms=S.media.filter(m=>(!onlyNew||!I.lastExport||m.ts>I.lastExport)&&(vid||m.kind!=='video'));
@@ -497,7 +518,7 @@ document.addEventListener('click',async e=>{const t=e.target.closest('[data-act]
   if(t.tagName==='A')e.preventDefault();
   switch(a){
   case'back':{const m=S.view==='zone'?mainOfZone(S.zone):null;S.view=(m&&m.subs.length>1)?'main':'areas';if(S.view==='main')S.main=m.id;S.q='';render();window.scrollTo(0,0);break}
-  case'main':{const m=mainById(d.id);if(m.subs.length===1){S.zone=m.subs[0];S.view='zone';S.filter='all';S.showOut=false}else{S.main=d.id;S.view='main'}S.q='';render();window.scrollTo(0,0);break}
+  case'main':{const m=mainById(d.id);if(m.subs.length===1){S.zone=m.subs[0];S.view='zone';S.filter='all';S.showOut=false;S.prevOpen=false}else{S.main=d.id;S.view='main'}S.q='';render();window.scrollTo(0,0);break}
   case'tab':S.view=d.v;S.q='';render();window.scrollTo(0,0);if(d.v==='export')storInfo();break;
   case'settings':settingsSheet();break;
   case'importPack':$('#fPack').click();break;
@@ -510,8 +531,8 @@ document.addEventListener('click',async e=>{const t=e.target.closest('[data-act]
   case'openInsp':S.insp=S.list.find(i=>i.id===d.id);S.media=(await mediaByInsp(S.insp.id)).map(({blob,...m})=>m);S.view='areas';render();break;
   case'home':S.view='home';S.insp=null;render();break;
   case'autoplan':autoplan();break;
-  case'zone':S.zone=d.id;S.view='zone';S.q='';S.filter='all';S.showOut=false;render();window.scrollTo(0,0);break;
-  case'filt':S.filter=d.v;renderBody();break;
+  case'zone':S.zone=d.id;S.view='zone';S.q='';S.filter='all';S.showOut=false;S.prevOpen=false;render();window.scrollTo(0,0);break;
+  case'filt':S.filter=d.v;render();window.scrollTo(0,0);break;
   case'toggleOut':S.showOut=!S.showOut;renderBody();break;
   case'ans':{const seg=t.parentElement;const k=seg.dataset.k,id=seg.dataset.id;S.insp[k]=S.insp[k]||{};const r=S.insp[k][id]=S.insp[k][id]||{};r.a=r.a===d.v?'':d.v;r.ts=nowISO();save();
     seg.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.v===r.a));const card=seg.closest('.item');card.classList.toggle('done',!!r.a);
@@ -537,6 +558,7 @@ document.addEventListener('click',async e=>{const t=e.target.closest('[data-act]
   }});
 function closeFinding(id){const f=S.insp.findings.find(x=>x.id===id);if(f){delete f.fresh;if(!f.title&&!f.text&&!S.media.some(m=>m.findingId===id)){S.insp.findings=S.insp.findings.filter(x=>x.id!==id)}}
   save();S.curFinding=null;closeModal();S._keepScroll=true;render()}
+document.addEventListener('toggle',e=>{if(e.target.id==='prevBox')S.prevOpen=e.target.open},true);
 document.addEventListener('input',e=>{const t=e.target;
   if(t.dataset.bind){let v=t.value;if(t.dataset.num)v=+v||'';setPath(t.dataset.bind,v);save();if(t.dataset.bind==='plan.days'){clearTimeout(S._pd);S._pd=setTimeout(()=>{S._keepScroll=true;renderBody()},700)}}
   if(t.dataset.rem){const[k,id]=t.dataset.rem.split(':');S.insp[k]=S.insp[k]||{};const r=S.insp[k][id]=S.insp[k][id]||{};r.rem=t.value;save()}
