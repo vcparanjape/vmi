@@ -46,6 +46,7 @@ textarea{min-height:64px;resize:vertical}
 .z .nm{flex:1}.z .pc{font-size:12px;color:var(--mut)}
 .bar{height:5px;background:#e6eaf0;border-radius:3px;overflow:hidden;margin-top:4px}.bar i{display:block;height:100%;background:var(--ok)}
 .item{background:#fff;border-radius:12px;padding:11px;margin-bottom:10px;border-left:4px solid var(--line)}
+.item.kca{background:#fffbe6}.item.kcl{background:#fff0f4}.item.kpv{background:#eef5ff}details.pvbox{background:#eef5ff!important}h2.sh{padding:4px 8px;border-radius:6px}h2.sh.ca{background:#fff3c4}h2.sh.cl{background:#ffdce6}h2.sh.pv{background:#d9e8ff}
 .item.done{border-left-color:var(--ok)}.item.flag{border-left-color:var(--bad)}.item.out{opacity:.55}
 .ih{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--mut)}
 .code{font-weight:700;color:var(--blue)}
@@ -85,7 +86,7 @@ details.guid div{white-space:pre-wrap;font-size:13px;margin-top:6px}
 pre.out{white-space:pre-wrap;background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px;font:13px/1.45 ui-monospace,Menlo,monospace}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(90px + env(safe-area-inset-bottom));background:#222;color:#fff;padding:9px 16px;border-radius:20px;z-index:60;font-size:14px}
 .mand{margin:6px 0;padding:8px 10px;border-radius:8px;background:#fff4e5;border:1px solid #f0b35a;font-size:14px}.mand.ok{background:#eaf7ee;border-color:#8fd19e}.mand details{margin-top:6px}.mand summary{color:var(--blue);font-size:13px}.refs{display:flex;gap:8px;overflow-x:auto;padding-top:6px}.refs figure{margin:0;flex:0 0 auto;width:150px}.refs img{width:150px;border-radius:6px;border:1px solid var(--line)}.refs figcaption{font-size:11px;color:#666}
-.filt.hf{margin:8px 0 0}.filt.hf button{background:rgba(255,255,255,.14);color:#fff;border-color:rgba(255,255,255,.25);padding:6px 2px;font-size:12px}.filt.hf button.on{background:#fff;color:var(--navy)}
+.filt.hf{margin:8px 0 0}.filt.hf[hidden]{display:none}.filt.hf button{background:rgba(255,255,255,.14);color:#fff;border-color:rgba(255,255,255,.25);padding:6px 2px;font-size:12px}.filt.hf button.on{background:#fff;color:var(--navy)}
 details.pvbox{margin:14px 0;background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 10px}details.pvbox>summary{font-weight:700;font-size:15px;padding:4px 0}
 .filt{display:flex;gap:6px;margin:6px 0 10px}.filt button{flex:1;border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px;font-size:13px}.filt button.on{background:var(--blue);color:#fff;border-color:var(--blue)}
 .viewer img,.viewer video{width:100%;border-radius:10px;background:#000}
@@ -103,7 +104,7 @@ details.pvbox{margin:14px 0;background:#fff;border:1px solid var(--line);border-
 <script>
 'use strict';
 /* ================= constants ================= */
-const APPV='1.6.1';
+const APPV='1.7';
 const GROUPS=[{t:'My vessels',own:true,v:[['SUTTON','Federal Sutton'],['SWIFT','Federal Swift'],['SPEY','Federal Spey'],['TYNE','Federal Tyne'],['TWEED','Federal Tweed']]},
 {t:"Anatolii's vessels",v:[['SEVERN','Federal Severn'],['SKEENA','Federal Skeena'],['SPRUCE','Federal Spruce'],['SABLE','Federal Sable'],['KIBUNE','Federal Kibune']]},
 {t:"Gaurav's vessels",v:[['SKYE','Federal Skye'],['TAKASE','Federal Takase'],['TRIDENT','Federal Trident'],['TAMBO','Federal Tambo'],['TIBER','Federal Tiber']]}];
@@ -194,13 +195,13 @@ function newInspection(vid,vname){const id=vid+'-'+new Date().toISOString().slic
 function header(title,opts={}){const h=$('#hdr');
   h.innerHTML=`<div class="row">${opts.back?`<button data-act="back">‹ Back</button>`:''}<h1>${esc(title)}</h1>${opts.right||''}</div>`+
   (opts.search?`<input class="search" id="q" type="search" placeholder="Search area, machinery, checklist…" value="${esc(S.q)}" autocomplete="off">`:'')+(opts.extra||'');
-  const q=$('#q');if(q)q.oninput=e=>{S.q=e.target.value;renderBody()}}
+  const q=$('#q');if(q)q.oninput=e=>{S.q=e.target.value;const hf=$('#hfilt');if(hf)hf.hidden=!(S.view==='zone'||S.q.trim());renderBody()}}
 function tabs(){const t=$('#tabs');if(!S.insp||S.view==='home'){t.hidden=true;return}t.hidden=false;
   const T=[['boarding','⚓','Boarding'],['plan','🗓','Plan'],['areas','🧭','Areas'],['findings','⚠️','Findings'],['report','📝','Report'],['export','☁️','Sync']];
   t.innerHTML=T.map(([v,i,l])=>`<button data-act="tab" data-v="${v}" class="${S.view===v||(v==='areas'&&['zone','main'].includes(S.view))?'on':''}"><b>${i}</b>${l}</button>`).join('')}
 function render(){tabs();const v=S.view;
   if(v==='home'){header('VM Inspection',{right:`<button data-act="settings">⚙︎</button>`})}
-  else{const nf=S.insp.findings.length;header(S.insp.vessel+(S.view==='mand'?' · Mandatory photos':S.view==='zone'?' · '+mainOfZone(S.zone).name:S.view==='main'?' · '+mainById(S.main).name:''),{back:['zone','main','mand'].includes(S.view),search:['areas','zone','main'].includes(v),extra:v==='zone'?zoneFilt():'',right:`<span class="pill">${nf} F</span><button data-act="home">⌂</button>`})}
+  else{const nf=S.insp.findings.length;header(S.insp.vessel+(S.view==='mand'?' · Mandatory photos':S.view==='zone'?' · '+mainOfZone(S.zone).name:S.view==='main'?' · '+mainById(S.main).name:''),{back:['zone','main','mand'].includes(S.view),search:['areas','zone','main'].includes(v),extra:['areas','zone','main'].includes(v)?zoneFilt():'',right:`<span class="pill">${nf} F</span><button data-act="home">⌂</button>`})}
   renderBody()}
 function renderBody(){const a=$('#app');const y=window.scrollY;
   const fn={mand:vMand,main:vMain,home:vHome,boarding:vBoarding,plan:vPlan,areas:vAreas,zone:vZone,findings:vFindings,report:vReport,export:vExport}[S.view];
@@ -287,7 +288,7 @@ function findChips(k,id){return S.insp.findings.filter(f=>f[k]===id).map(f=>`<bu
 function capRow(ctx){const c=Object.entries(ctx).map(([k,v])=>`data-${k}="${esc(v)}"`).join(' ');
   return`<div class="cap"><button data-act="cap" data-kind="photo" ${c}><b>📷</b>Photo</button><button data-act="cap" data-kind="video" ${c}><b>🎥</b>Video</button><button data-act="cap" data-kind="voice" ${c}><b>🎙</b>Voice</button><button class="fd" data-act="newFinding" ${c}><b>⚠️</b>Finding</button></div>`}
 function clCard(i,zid){const r=S.insp.cl[i.id]||{};const out=!inScope('cl',i);const hasF=S.insp.findings.some(f=>f.clId===i.id);
-  return`<div class="item ${r.a?'done':''} ${hasF||r.a==='No'?'flag':''} ${out?'out':''}" id="it-${i.id}">
+  return`<div class="item kcl ${r.a?'done':''} ${hasF||r.a==='No'?'flag':''} ${out?'out':''}" id="it-${i.id}">
   <div class="ih"><span class="code">${i.id}</span><span class="pri ${priKey(i.pri)}">${priKey(i.pri)}</span><span class="tag">${esc(i.group)}</span>${zid?'':`<span class="tag">${esc(zoneById(i.zones[0]).name.split(' – ')[0].split(',')[0])}</span>`}</div>
   <div class="q">${esc(i.q)}</div>
   <div class="seg" data-k="cl" data-id="${i.id}">${CL_ANS.map(a=>`<button data-act="ans" data-v="${a}" class="${r.a===a?'on':''}">${a}</button>`).join('')}</div>
@@ -295,7 +296,7 @@ function clCard(i,zid){const r=S.insp.cl[i.id]||{};const out=!inScope('cl',i);co
   <textarea data-rem="cl:${i.id}" placeholder="Remarks / positive comments (tap 🎤 on keyboard to dictate)">${esc(r.rem||'')}</textarea>
   ${capRow({zone:zid||i.zones[0],cl:i.id})}${mediaThumbs(itemMedia('clId',i.id))}${findChips('clId',i.id)}</div>`}
 function caCard(i,zid){const r=S.insp.ca[i.id]||{};const out=!inScope('ca',i);const hasF=S.insp.findings.some(f=>f.caId===i.id);
-  return`<div class="item ${r.a?'done':''} ${hasF||['Poor','Unsatisfactory'].includes(r.a)?'flag':''} ${out?'out':''}" id="it-${i.id}">
+  return`<div class="item kca ${r.a?'done':''} ${hasF||['Poor','Unsatisfactory'].includes(r.a)?'flag':''} ${out?'out':''}" id="it-${i.id}">
   <div class="ih"><span class="code">Condition</span><span class="pri ${priKey(i.pri)}">${priKey(i.pri)}</span><span class="tag">${esc(i.cat)}</span>${zid?'':`<span class="tag">${esc(zoneById(i.zones[0]).name.split(' – ')[0].split(',')[0])}</span>`}</div>
   <div class="q">${esc(i.comp)}</div>${mandBadge(i)}
   <div class="seg ca" data-k="ca" data-id="${i.id}">${CA_ANS.map(a=>`<button data-act="ans" data-v="${a}" class="${r.a===a?'on':''}">${a}</button>`).join('')}</div>
@@ -303,12 +304,12 @@ function caCard(i,zid){const r=S.insp.ca[i.id]||{};const out=!inScope('ca',i);co
   <textarea data-rem="ca:${i.id}" placeholder="Remarks (tap 🎤 on keyboard to dictate)">${esc(r.rem||'')}</textarea>
   ${capRow({zone:zid||i.zones[0],ca:i.id})}${mediaThumbs(itemMedia('caId',i.id))}${findChips('caId',i.id)}</div>`}
 function prevCard(p){const r=S.insp.prev?.[p.id]||{};
-  return`<div class="item ${r.a?'done':''} ${r.a==='Open'||r.a==='Repeat'?'flag':''}" id="it-${p.id}"><div class="ih"><span class="code">${esc(p.src)}</span>${p.ref?`<span class="tag">${esc(p.ref)}</span>`:''}${p.date?`<span class="tag">${esc(p.date)}</span>`:''}</div>
+  return`<div class="item kpv ${r.a?'done':''} ${r.a==='Open'||r.a==='Repeat'?'flag':''}" id="it-${p.id}"><div class="ih"><span class="code">${esc(p.src)}</span>${p.ref?`<span class="tag">${esc(p.ref)}</span>`:''}${p.date?`<span class="tag">${esc(p.date)}</span>`:''}</div>
   <div class="q">${esc(p.text)}</div>${p.action?`<details class="guid"><summary>Action taken / reported closure</summary><div>${esc(p.action)}</div></details>`:''}
   <div class="seg" data-k="prev" data-id="${p.id}">${['Closed','Open','Repeat','NA'].map(a=>`<button data-act="ans" data-v="${a}" class="${r.a===a?'on':''}">${a}</button>`).join('')}</div>
   <textarea data-rem="prev:${p.id}" placeholder="Verification remarks">${esc(r.rem||'')}</textarea>${capRow({zone:p.zone,prev:p.id})}${mediaThumbs(S.media.filter(x=>x.prevId===p.id))}${S.insp.findings.filter(f=>f.prevId===p.id).map(f=>`<button class="chip" data-act="editFinding" data-id="${f.id}">⚠️ F${f.no} ${esc(f.title||'(untitled)')}</button>`).join('')}</div>`}
-function zoneFilt(){if(S.q.trim())return'';const f=S.filter;const n=prevItems().filter(p=>p.zone===S.zone).length;
-  return`<div class="filt hf">${[['all','All'],['cl','Checklist'],['ca','Condition'],['open','Not done'],['prev','Previous'+(n?' ('+n+')':'')]].map(([k,l])=>`<button data-act="filt" data-v="${k}" class="${f===k?'on':''}">${l}</button>`).join('')}</div>`}
+function zoneFilt(){const f=S.filter;const srch=!!S.q.trim();const n=srch||S.view!=='zone'?0:prevItems().filter(p=>p.zone===S.zone).length;
+  return`<div class="filt hf" id="hfilt" ${(S.view==='zone'||srch)?'':'hidden'}>${[['all','All'],['ca','Condition'],['cl','Checklist'],['open','Not done'],['prev','Previous'+(n?' ('+n+')':'')]].map(([k,l])=>`<button data-act="filt" data-v="${k}" class="${f===k?'on':''}">${l}</button>`).join('')}</div>`}
 function vZone(){if(S.q.trim())return vSearch();const z=zoneById(S.zone);const f=S.filter;let PV=prevItems().filter(p=>p.zone===z.id);
   let cl=clItems().filter(i=>i.zones.includes(z.id)),ca=caItems().filter(i=>i.zones.includes(z.id));
   const hidden=cl.filter(i=>!inScope('cl',i)).length+ca.filter(i=>!inScope('ca',i)).length;
@@ -318,8 +319,8 @@ function vZone(){if(S.q.trim())return vSearch();const z=zoneById(S.zone);const f
   <h3>General photos / findings for this area</h3>${capRow({zone:z.id})}${mediaThumbs(gen)}${S.insp.findings.filter(x=>x.zone===z.id&&!x.clId&&!x.caId).map(x=>`<button class="chip" data-act="editFinding" data-id="${x.id}">⚠️ F${x.no} ${esc(x.title||'(untitled)')}</button>`).join('')}</div>`;
   const nd=(k,i)=>!S.insp[k][i.id]?.a;
   if(f==='prev')return h+(PV.length?`<h2>Previous findings to verify (${PV.length})</h2>`+PV.map(prevCard).join(''):'<p class="muted">No previous findings for this area.</p>');
-  if(f!=='ca'){const L=cl.filter(i=>f!=='open'||nd('cl',i));if(L.length)h+=`<h2>Jibe checklist</h2>`+L.map(i=>clCard(i,z.id)).join('')}
-  if(f!=='cl'){const L=ca.filter(i=>f!=='open'||nd('ca',i));if(L.length)h+=`<h2>Condition assessment</h2>`+L.map(i=>caCard(i,z.id)).join('')}
+  if(f!=='cl'){const L=ca.filter(i=>f!=='open'||nd('ca',i));if(L.length)h+=`<h2 class="sh ca">Condition assessment (${L.length})</h2>`+L.map(i=>caCard(i,z.id)).join('')}
+  if(f!=='ca'){const L=cl.filter(i=>f!=='open'||nd('cl',i));if(L.length)h+=`<h2 class="sh cl">Jibe checklist (${L.length})</h2>`+L.map(i=>clCard(i,z.id)).join('')}
   if(f==='all'||f==='open'){if(f==='open')PV=PV.filter(p=>!S.insp.prev?.[p.id]?.a);const dn=PV.filter(p=>S.insp.prev?.[p.id]?.a).length;
     if(PV.length)h+=`<details class="pvbox" id="prevBox" ${S.prevOpen?'open':''}><summary>Previous findings to verify (${f==='open'?PV.length+' not done':dn+'/'+PV.length+' checked'})</summary>${PV.map(prevCard).join('')}</details>`}
   return h}
@@ -327,10 +328,11 @@ function vSearch(){const t=S.q.toLowerCase().trim().split(/\s+/);const m=s=>t.ev
   const Z=zones().filter(z=>m(z.name+' '+z.kw+' '+z.id+' '+mainOfZone(z.id).name));const P=prevItems().filter(p=>m(p.text+' '+p.src+' '+(p.ref||'')));
   const C=clItems().filter(i=>m(i.id+' '+i.q+' '+i.group+' '+(i.loc||'')+' '+i.guid)).slice(0,25);
   const A=caItems().filter(i=>m(i.comp+' '+i.cat+' '+(i.kw||''))).slice(0,25);
-  let h='';if(Z.length)h+=`<h2>Areas</h2><div class="zlist">`+Z.map(z=>`<button class="z" data-act="zone" data-id="${z.id}"><span class="nm">${esc(z.name)}<br><span class="muted">${esc(mainOfZone(z.id).name)}</span></span>›</button>`).join('')+'</div>';
-  if(P.length)h+=`<h2>Previous findings (${P.length})</h2>`+P.map(prevCard).join('');
-  if(A.length)h+=`<h2>Condition / machinery (${A.length})</h2>`+A.map(i=>caCard(i,null)).join('');
-  if(C.length)h+=`<h2>Checklist (${C.length})</h2>`+C.map(i=>clCard(i,null)).join('');
+  const f=S.filter;const nd=(k,i)=>!S.insp[k][i.id]?.a;let h='';
+  if(f==='all'||f==='ca'||f==='open'){const L=A.filter(i=>f!=='open'||nd('ca',i));if(L.length)h+=`<h2 class="sh ca">Condition assessment (${L.length})</h2>`+L.map(i=>caCard(i,null)).join('')}
+  if(f==='all'||f==='cl'||f==='open'){const L=C.filter(i=>f!=='open'||nd('cl',i));if(L.length)h+=`<h2 class="sh cl">Jibe checklist (${L.length})</h2>`+L.map(i=>clCard(i,null)).join('')}
+  if(f==='all'||f==='prev'||f==='open'){const L=P.filter(p=>f!=='open'||!S.insp.prev?.[p.id]?.a);if(L.length)h+=`<h2 class="sh pv">Previous findings (${L.length})</h2>`+L.map(prevCard).join('')}
+  if(Z.length&&f==='all')h+=`<h2>Areas</h2><div class="zlist">`+Z.map(z=>`<button class="z" data-act="zone" data-id="${z.id}"><span class="nm">${esc(z.name)}<br><span class="muted">${esc(mainOfZone(z.id).name)}</span></span>›</button>`).join('')+'</div>';
   return h||`<p class="muted">No match for “${esc(S.q)}”.</p>`}
 
 function vFindings(){const F=[...S.insp.findings].sort((a,b)=>a.no-b.no);
