@@ -86,6 +86,7 @@ details.guid div{white-space:pre-wrap;font-size:13px;margin-top:6px}
 pre.out{white-space:pre-wrap;background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px;font:13px/1.45 ui-monospace,Menlo,monospace}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(90px + env(safe-area-inset-bottom));background:#222;color:#fff;padding:9px 16px;border-radius:20px;z-index:60;font-size:14px}
 .mand{margin:6px 0;padding:8px 10px;border-radius:8px;background:#fff4e5;border:1px solid #f0b35a;font-size:14px}.mand.ok{background:#eaf7ee;border-color:#8fd19e}.mand details{margin-top:6px}.mand summary{color:var(--blue);font-size:13px}.refs{display:flex;gap:8px;overflow-x:auto;padding-top:6px}.refs figure{margin:0;flex:0 0 auto;width:150px}.refs img{width:150px;border-radius:6px;border:1px solid var(--line)}.refs figcaption{font-size:11px;color:#666}
+details.past{background:#eef5ff;border:1px solid #c9dcf5;border-radius:8px;padding:6px 9px;margin:4px 0 6px;font-size:14px}details.past>summary{color:var(--blue);font-weight:600}.psum{margin-top:6px;line-height:1.4}details.past2{margin-top:6px}details.past2>summary{color:var(--blue);font-size:13px}.praw{background:#fff;border-radius:6px;padding:6px 8px;margin:6px 0;font-size:13px}
 .filt.hf{margin:8px 0 0}.filt.hf[hidden]{display:none}.filt.hf button{background:rgba(255,255,255,.14);color:#fff;border-color:rgba(255,255,255,.25);padding:6px 2px;font-size:12px}.filt.hf button.on{background:#fff;color:var(--navy)}
 details.pvbox{margin:14px 0;background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 10px}details.pvbox>summary{font-weight:700;font-size:15px;padding:4px 0}
 .filt{display:flex;gap:6px;margin:6px 0 10px}.filt button{flex:1;border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px;font-size:13px}.filt button.on{background:var(--blue);color:#fff;border-color:var(--blue)}
@@ -104,7 +105,7 @@ details.pvbox{margin:14px 0;background:#fff;border:1px solid var(--line);border-
 <script>
 'use strict';
 /* ================= constants ================= */
-const APPV='1.7';
+const APPV='1.8';
 const GROUPS=[{t:'My vessels',own:true,v:[['SUTTON','Federal Sutton'],['SWIFT','Federal Swift'],['SPEY','Federal Spey'],['TYNE','Federal Tyne'],['TWEED','Federal Tweed']]},
 {t:"Anatolii's vessels",v:[['SEVERN','Federal Severn'],['SKEENA','Federal Skeena'],['SPRUCE','Federal Spruce'],['SABLE','Federal Sable'],['KIBUNE','Federal Kibune']]},
 {t:"Gaurav's vessels",v:[['SKYE','Federal Skye'],['TAKASE','Federal Takase'],['TRIDENT','Federal Trident'],['TAMBO','Federal Tambo'],['TIBER','Federal Tiber']]}];
@@ -181,7 +182,7 @@ const clItems=()=>S.pack?[...FOCUS_ITEMS,...S.pack.checklist]:[];
 const caItems=()=>S.pack?S.pack.ca:[];
 const priKey=p=>/PSC/.test(p)?'PSC':/1/.test(p)?'P1':'P2';
 function scopeLevel(){const d=+(S.insp.plan.days||3.5);return d>=3.5?'Full':d>=2?'Focused':'Critical'}
-function inScope(kind,it){const l=scopeLevel();if(l==='Full')return true;const p=priKey(it.pri);
+function inScope(kind,it){return true;const l=scopeLevel();if(l==='Full')return true;const p=priKey(it.pri);
   if(kind==='cl')return p!=='P2';return l==='Focused'?p!=='P2':p==='PSC'}
 function zoneStats(zid){let n=0,d=0;prevItems().forEach(p=>{if(p.zone===zid){n++;if(S.insp.prev?.[p.id]?.a)d++}});clItems().forEach(i=>{if(i.zones.includes(zid)&&inScope('cl',i)){n++;if(S.insp.cl[i.id]?.a)d++}});
   caItems().forEach(i=>{if(i.zones.includes(zid)&&inScope('ca',i)){n++;if(S.insp.ca[i.id]?.a)d++}});return{n,d}}
@@ -329,10 +330,10 @@ function vSearch(){const t=S.q.toLowerCase().trim().split(/\s+/);const m=s=>t.ev
   const C=clItems().filter(i=>m(i.id+' '+i.q+' '+i.group+' '+(i.loc||'')+' '+i.guid)).slice(0,25);
   const A=caItems().filter(i=>m(i.comp+' '+i.cat+' '+(i.kw||''))).slice(0,25);
   const f=S.filter;const nd=(k,i)=>!S.insp[k][i.id]?.a;let h='';
+  if(Z.length&&f==='all')h+=`<h2>Areas</h2><div class="zlist">`+Z.map(z=>`<button class="z" data-act="zone" data-id="${z.id}"><span class="nm">${esc(z.name)}<br><span class="muted">${esc(mainOfZone(z.id).name)}</span></span>›</button>`).join('')+'</div>';
   if(f==='all'||f==='ca'||f==='open'){const L=A.filter(i=>f!=='open'||nd('ca',i));if(L.length)h+=`<h2 class="sh ca">Condition assessment (${L.length})</h2>`+L.map(i=>caCard(i,null)).join('')}
   if(f==='all'||f==='cl'||f==='open'){const L=C.filter(i=>f!=='open'||nd('cl',i));if(L.length)h+=`<h2 class="sh cl">Jibe checklist (${L.length})</h2>`+L.map(i=>clCard(i,null)).join('')}
   if(f==='all'||f==='prev'||f==='open'){const L=P.filter(p=>f!=='open'||!S.insp.prev?.[p.id]?.a);if(L.length)h+=`<h2 class="sh pv">Previous findings (${L.length})</h2>`+L.map(prevCard).join('')}
-  if(Z.length&&f==='all')h+=`<h2>Areas</h2><div class="zlist">`+Z.map(z=>`<button class="z" data-act="zone" data-id="${z.id}"><span class="nm">${esc(z.name)}<br><span class="muted">${esc(mainOfZone(z.id).name)}</span></span>›</button>`).join('')+'</div>';
   return h||`<p class="muted">No match for “${esc(S.q)}”.</p>`}
 
 function vFindings(){const F=[...S.insp.findings].sort((a,b)=>a.no-b.no);
@@ -347,11 +348,14 @@ function execText(){const b=S.insp.boarding;const tm=v=>v?v.slice(11,16).replace
   add.push('Drills'+((b.drills||'').trim()?' ('+b.drills.split('\n').map(s=>s.trim()).filter(Boolean).join(', ')+')':''));
   return`Executive Summary\nThe inspector embarked the vessel at ${tm(b.embark)} hrs. on ${dt(b.embark)}${b.port?' at '+b.port:''}. Opening meeting was conducted from ${tm(b.openStart)} hrs. to ${tm(b.openEnd)} hrs. on ${dt(b.openStart)}, which was attended by all senior officers. During this meeting, the scope & schedule of the inspection was explained.\n\nScope of Inspection\n${(sc.length?sc:['----------------------------']).map(s=>'- '+s).join('\n')}\n\nAdditionally, the inspection included the following:\n${add.map(s=>'- '+s).join('\n')}\n\nClosing meeting was conducted from ${tm(b.closeStart)} hrs. to ${tm(b.closeEnd)} hrs. on ${dt(b.closeStart)}, which was attended by all senior officers. The inspector disembarked from the vessel at ${tm(b.disembark)} hrs. on ${dt(b.disembark)}.`}
 function preCap(id){const ms=S.media.filter(m=>m.preId===id);return`<div class="cap" style="grid-template-columns:1fr 1fr"><button data-act="cap" data-kind="voice" data-pre="${id}" data-zone="GEN"><b>🎙</b>Voice note</button><button data-act="cap" data-kind="photo" data-pre="${id}" data-zone="GEN"><b>📷</b>Photo</button></div>${mediaThumbs(ms)}`}
+function pastBox(id){const R=S.pack?.prevRep?.[S.insp.vesselId];if(!R)return'';const sum=id==='EXEC'?R.exec:R.pre?.[id];const raw=id==='EXEC'?R.rawExec:R.raw?.[id];if(!sum&&!(raw&&raw.length))return'';
+  return`<details class="past"><summary>Past reports – summary${raw?.length?' ('+raw.length+' version'+(raw.length>1?'s':'')+')':''}</summary><div class="psum">${esc(sum||'—').replace(/\n/g,'<br>')}</div><div class="muted" style="font-size:12px;margin:4px 0">${esc(R.src)}</div>
+  ${raw?.length?`<details class="past2"><summary>Full text from each report</summary>${raw.map(x=>`<div class="praw"><b>${esc(x.r)}</b><br>${esc(x.t).replace(/\n/g,'<br>')}</div>`).join('')}</details>`:''}</details>`}
 function vReport(){const I=S.insp;let h=`<div class="card"><h3>Executive Summary <span class="muted">(${(I.exec||'').length}/10000)</span></h3>
   <p class="muted">Built from Boarding tab. Final format to follow your chosen chat template.</p><button class="btn sec full" data-act="genExec">Fill from boarding data</button>
-  <textarea data-bind="exec" style="min-height:260px;margin-top:8px">${esc(I.exec)}</textarea>${preCap('EXEC')}</div><h2>Preamble</h2>`;
+  ${pastBox('EXEC')}<textarea data-bind="exec" style="min-height:260px;margin-top:8px">${esc(I.exec)}</textarea>${preCap('EXEC')}</div><h2>Preamble</h2>`;
   PREAMBLE.forEach(([c,n,subs])=>{h+=`<div class="card"><h3>${c} – ${esc(n)}</h3>`;subs.forEach((s,ix)=>{const id=c+String(ix+1).padStart(2,'0');const nf=I.findings.filter(f=>f.pre===id).length;
-    h+=`<label>${String(ix+1).padStart(2,'0')} – ${esc(s)}${nf?` · <a href="#" data-act="preIns" data-id="${id}">insert ${nf} finding(s)</a>`:''}</label><textarea data-bind="preamble.${id}">${esc(I.preamble[id]||'')}</textarea>${preCap(id)}`});h+='</div>'});
+    h+=`<label>${String(ix+1).padStart(2,'0')} – ${esc(s)}${nf?` · <a href="#" data-act="preIns" data-id="${id}">insert ${nf} finding(s)</a>`:''}</label>${pastBox(id)}<textarea data-bind="preamble.${id}">${esc(I.preamble[id]||'')}</textarea>${preCap(id)}`});h+='</div>'});
   h+=`<div class="card"><h3>Dates</h3>${DATE_KEYS.map(k=>`<label>${k}</label><input data-bind="dates.${k}" value="${esc(I.dates[k]||'')}" placeholder="NA">`).join('')}</div>`;
   h+=I.status==='Completed'?`<div class="card"><b>✅ Completed ${I.completedAt?.slice(0,16).replace('T',' ')}</b><button class="btn sec full" data-act="reopen">Reopen inspection</button></div>`
    :`<button class="btn grn full" data-act="complete">✔︎ Complete inspection</button>`;
